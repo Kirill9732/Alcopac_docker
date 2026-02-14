@@ -30,7 +30,9 @@ docker compose up -d --build
 ### Установщик запросит:
 
 Telegram Bot Token @BotFather
+
 Telegram Admin ID @Get_myidrobot
+
 Токены провайдеров (опционально)
 
 ### Плагины Lampa
