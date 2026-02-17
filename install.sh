@@ -19,6 +19,7 @@ step() { echo ""; echo -e "${BOLD}[$1/6] $2${NC}"; echo ""; }
 
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CONFIG_DIR="$ROOT_DIR/config"
+NON_INTERACTIVE="${INSTALL_NONINTERACTIVE:-false}"
 
 # ── вспомогательные функции ──
 
@@ -29,24 +30,32 @@ require_cmd() {
 ask() {
   local prompt="$1" default="${2:-}"
   local reply
-  if [ -n "$default" ]; then
-    printf "  ${CYAN}?${NC} %s [${DIM}%s${NC}]: " "$prompt" "$default"
-  else
-    printf "  ${CYAN}?${NC} %s: " "$prompt"
+  if [ "$NON_INTERACTIVE" = "true" ] || [ ! -t 0 ]; then
+    echo "${default}"
+    return 0
   fi
-  read -r reply
+  if [ -n "$default" ]; then
+    printf "  ${CYAN}?${NC} %s [${DIM}%s${NC}]: " "$prompt" "$default" >&2
+  else
+    printf "  ${CYAN}?${NC} %s: " "$prompt" >&2
+  fi
+  read -r reply < /dev/tty
   echo "${reply:-$default}"
 }
 
 ask_yn() {
   local prompt="$1" default="${2:-n}"
   local reply
-  if [ "$default" = "y" ]; then
-    printf "  ${CYAN}?${NC} %s [Y/n]: " "$prompt"
+  if [ "$NON_INTERACTIVE" = "true" ] || [ ! -t 0 ]; then
+    reply="$default"
   else
-    printf "  ${CYAN}?${NC} %s [y/N]: " "$prompt"
+    if [ "$default" = "y" ]; then
+      printf "  ${CYAN}?${NC} %s [Y/n]: " "$prompt" >&2
+    else
+      printf "  ${CYAN}?${NC} %s [y/N]: " "$prompt" >&2
+    fi
+    read -r reply < /dev/tty
   fi
-  read -r reply
   reply="$(printf '%s' "${reply:-$default}" | tr '[:upper:]' '[:lower:]')"
   case "$reply" in y|yes|д|да) echo "true" ;; *) echo "false" ;; esac
 }
@@ -64,6 +73,8 @@ json_str() {
 step 1 "Проверка окружения"
 
 require_cmd docker
+require_cmd curl
+require_cmd jq
 
 COMPOSE_CMD=""
 if docker compose version >/dev/null 2>&1; then
@@ -85,6 +96,9 @@ esac
 
 log "Docker: OK  |  Compose: $COMPOSE_CMD"
 log "Архитектура: $HOST_ARCH ($TARGET_ARCH)"
+if [ "$NON_INTERACTIVE" = "true" ] || [ ! -t 0 ]; then
+  info "Режим без TTY: использую значения по умолчанию (или из env)"
+fi
 
 if [ "$TARGET_ARCH" = "unknown" ]; then
   warn "Неизвестная архитектура. Dockerfile поддерживает amd64/arm64."
@@ -159,15 +173,15 @@ log "Порт: $LISTEN_PORT"
 
 step 4 "Конфигурация"
 
-local CONF_TEMPLATE_URL="https://raw.githubusercontent.com/Kirill9732/Alcopac_docker/refs/heads/main/templates/init.json.example"
+CONF_TEMPLATE_URL="https://raw.githubusercontent.com/Kirill9732/Alcopac_docker/refs/heads/main/templates/init.json.example"
 
 info "Скачиваю шаблон конфигурации..."
-if ! curl -fsSL --connect-timeout 15 -o "$CONFIG_DIR/init.json" "$CONF_TEMPLATE_URL" 2>/dev/null; then
+if ! curl -fsSL --connect-timeout 15 --max-time 60 -o "$CONFIG_DIR/init.json" "$CONF_TEMPLATE_URL" 2>/dev/null; then
   err "Не удалось скачать шаблон конфигурации с ${CONF_TEMPLATE_URL}"
 fi
 
 # Подстановка динамических значений через jq
-local tmp_conf="$CONFIG_DIR/init.json.tmp"
+tmp_conf="$CONFIG_DIR/init.json.tmp"
 
 jq \
   --argjson port "$LISTEN_PORT" \
