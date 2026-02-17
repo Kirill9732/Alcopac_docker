@@ -11,6 +11,7 @@ RUN apt-get update \
         wget \
         unzip \
         rsync \
+        jq \
         proxychains4 \
         nodejs \
     && (apt-get install -y --no-install-recommends chromium \
@@ -23,15 +24,9 @@ RUN if [ ! -x /usr/bin/node ] && [ -x /usr/bin/nodejs ]; then ln -s /usr/bin/nod
 
 WORKDIR /opt/lampac
 
+# ── бинарники ──
 COPY app/lampac-go-amd64 /tmp/lampac-go-amd64
 COPY app/lampac-go-arm64 /tmp/lampac-go-arm64
-COPY app/module /opt/lampac/module
-COPY app/plugins /opt/lampac/plugins
-COPY app/wwwroot /opt/lampac/wwwroot
-COPY app/torrserver /opt/lampac/torrserver
-COPY app/bin /opt/lampac/bin
-COPY templates /opt/lampac/templates
-COPY docker/entrypoint.sh /entrypoint.sh
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
@@ -40,11 +35,10 @@ RUN set -eux; \
       arm64) cp /tmp/lampac-go-arm64 /usr/local/bin/lampac-go ;; \
       *) echo "Unsupported architecture: $ARCH"; exit 1 ;; \
     esac; \
-    chmod +x /usr/local/bin/lampac-go /entrypoint.sh; \
+    chmod +x /usr/local/bin/lampac-go; \
     rm -f /tmp/lampac-go-amd64 /tmp/lampac-go-arm64
 
-# Ensure yt-dlp is executable for current container architecture.
-# If bundled binary is incompatible, replace it with the proper upstream build.
+# ── yt-dlp ──
 RUN set -eux; \
     mkdir -p /opt/lampac/bin; \
     YT_BIN="/opt/lampac/bin/yt-dlp"; \
@@ -60,6 +54,32 @@ RUN set -eux; \
     fi; \
     ln -sf "$YT_BIN" /usr/local/bin/yt-dlp; \
     yt-dlp --version
+
+# ── defaults: файлы, которые volume может перекрыть ──
+# При первом запуске entrypoint.sh скопирует их в пустые volumes
+COPY app/module   /opt/lampac/_defaults/module
+COPY app/plugins  /opt/lampac/_defaults/plugins
+COPY app/wwwroot  /opt/lampac/_defaults/wwwroot
+COPY app/torrserver /opt/lampac/_defaults/torrserver
+COPY app/bin      /opt/lampac/_defaults/bin
+COPY templates    /opt/lampac/_defaults/templates
+
+# ── статичные файлы (не перекрываются volumes) ──
+COPY app/plugins  /opt/lampac/plugins
+COPY app/wwwroot  /opt/lampac/wwwroot
+COPY app/bin      /opt/lampac/bin
+
+# ── entrypoint ──
+COPY docker/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# ── создаём директории для volumes ──
+RUN mkdir -p /opt/lampac/config \
+             /opt/lampac/cache \
+             /opt/lampac/database \
+             /opt/lampac/data \
+             /opt/lampac/module \
+             /opt/lampac/torrserver
 
 ENV LAMPAC_GO_ADDR=0.0.0.0:18118 \
     LAMPAC_GO_REPO_ROOT=/opt/lampac \

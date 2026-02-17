@@ -26,19 +26,21 @@
       return url;
     }
 
+    Lampa.Storage.set('proxy_tmdb', true);
+
     Lampa.TMDB.image = function (url) {
-      var base = Lampa.Utils.protocol() + 'image.tmdb.org/' + url;
-      return Lampa.Storage.field('proxy_tmdb') ? '{localhost}/tmdb/img/' + account(url) : base;
+      return '{localhost}/tmdb/img/' + account(url);
     };
 
     Lampa.TMDB.api = function (url) {
-      var base = Lampa.Utils.protocol() + 'api.themoviedb.org/3/' + url;
-      return Lampa.Storage.field('proxy_tmdb') ? '{localhost}/tmdb/api/3/' + account(url) : base;
+      return '{localhost}/tmdb/api/3/' + account(url);
     };
 
     Lampa.Settings.listener.follow('open', function (e) {
       if (e.name == 'tmdb') {
         e.body.find('[data-parent="proxy"]').remove();
+        e.body.find('[data-name="proxy_tmdb"]').remove();
+        e.body.find('[data-name="proxy_tmdb_auto"]').remove();
       }
     });
 

@@ -1,5 +1,8 @@
 .DS_Store
 .env
+.git
 cache
 config
+database
+data
 README.md

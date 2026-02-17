@@ -1,5 +1,15 @@
 .env
 cache/*
 config/*
+database/*
+data/*
+torrserver/accs.db
+module/manifest.json
+module/JacRed.conf
 !cache/.gitkeep
 !config/.gitkeep
+!database/.gitkeep
+!data/.gitkeep
+.DS_Store
+app/.DS_Store
+app/wwwroot/.DS_Store

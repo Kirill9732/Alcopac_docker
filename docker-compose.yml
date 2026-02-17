@@ -17,5 +17,15 @@ services:
     ports:
       - "${LAMPAC_GO_PORT:-18118}:18118"
     volumes:
+      # ---------- конфигурация ----------
       - ./config:/opt/lampac/config
+      # ---------- пользовательские данные ----------
+      - ./database:/opt/lampac/database
+      # ---------- кэш + aeskey ----------
       - ./cache:/opt/lampac/cache
+      # ---------- torrserver (accs.db) ----------
+      - ./torrserver:/opt/lampac/torrserver
+      # ---------- module (manifest.json, JacRed.conf — редактируются через админку) ----------
+      - ./module:/opt/lampac/module
+      # ---------- data (veoveo и др.) ----------
+      - ./data:/opt/lampac/data
