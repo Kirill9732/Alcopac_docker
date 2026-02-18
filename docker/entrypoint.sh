@@ -32,6 +32,16 @@ if [ -d "$DEFAULTS_DIR/torrserver" ] && [ -z "$(ls -A "$APP_DIR/torrserver" 2>/d
   cp -a "$DEFAULTS_DIR/torrserver/." "$APP_DIR/torrserver/"
 fi
 
+# Обновление TorrServer бинарника из defaults (при обновлении образа)
+if [ -x "$DEFAULTS_DIR/torrserver/TorrServer-linux" ]; then
+  if [ ! -x "$APP_DIR/torrserver/TorrServer-linux" ] || \
+     [ "$DEFAULTS_DIR/torrserver/TorrServer-linux" -nt "$APP_DIR/torrserver/TorrServer-linux" ]; then
+    echo "[entrypoint] Обновляю TorrServer бинарник из defaults..."
+    cp "$DEFAULTS_DIR/torrserver/TorrServer-linux" "$APP_DIR/torrserver/TorrServer-linux"
+    chmod 0755 "$APP_DIR/torrserver/TorrServer-linux"
+  fi
+fi
+
 # ── конфигурация ──
 if [ ! -f "$CONFIG_DIR/current.conf" ] && [ -f "$DEFAULTS_DIR/templates/current.conf" ]; then
   echo "[entrypoint] Создаю config/current.conf из шаблона..."
@@ -47,6 +57,19 @@ fi
 chmod 0600 "$APP_DIR/cache/aeskey" 2>/dev/null || true
 chmod 0600 "$APP_DIR/torrserver/accs.db" 2>/dev/null || true
 chmod 0600 "$APP_DIR/database/tgauth/tokens.json" 2>/dev/null || true
+
+# ── TorrServer (фоновый процесс) ──
+TS_BIN="$APP_DIR/torrserver/TorrServer-linux"
+TS_PORT="${TORRSERVER_PORT:-9080}"
+
+if [ -x "$TS_BIN" ]; then
+  echo "[entrypoint] Запуск TorrServer на порту ${TS_PORT}..."
+  "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" &
+  TS_PID=$!
+  echo "[entrypoint] TorrServer PID: $TS_PID"
+else
+  echo "[entrypoint] TorrServer не найден — пропускаю"
+fi
 
 echo "[entrypoint] Запуск lampac-go..."
 exec /usr/local/bin/lampac-go

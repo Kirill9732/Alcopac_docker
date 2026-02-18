@@ -59,7 +59,7 @@
     function isMkvSource(data) {
         var url = resolveMediaUrl(data);
         if (!url) return false;
-        return /\.(mkv|avi|flv)($|\?|#)/i.test(url) || /\/lite\/pidtor\//i.test(url);
+        return /\.(mkv|avi|flv)($|\?|#)/i.test(url) || /\/lite\/pidtor\//i.test(url) || /\/ts\/stream\//i.test(url);
     }
 
     function requestFfprobe(mediaUrl, onSuccess, onError) {
@@ -122,7 +122,9 @@
         }
 
         var items = audioTracks.map(function (track, index) {
-            return formatAudioItem(track, index);
+            var item = formatAudioItem(track, index);
+            item.audioRelIndex = index;
+            return item;
         });
 
         var last_controller = Lampa.Controller.enabled().name
@@ -136,7 +138,7 @@
                     notify('Выбрана пустая дорожка');
                     return;
                 }
-                startTranscoding(data, item.track);
+                startTranscoding(data, item.track, item.audioRelIndex);
             },
             onBack: function () {
                 Lampa.Controller.toggle(last_controller)
@@ -144,19 +146,38 @@
         });
     }
 
-    function startTranscoding(data, track) {
+    function loadSubtitles(url) {
+        var net = new Lampa.Reguest();
+        net.native(account(url), function (response) {
+            try {
+                var subs = typeof response === 'string' ? JSON.parse(response) : response;
+                if (Array.isArray(subs) && subs.length > 0) {
+                    log('subtitles loaded', subs.length, subs);
+                    Lampa.Player.subtitles(subs);
+                } else {
+                    log('no subtitles available');
+                }
+            } catch (e) {
+                log('subtitles parse error', e);
+            }
+        }, function (error) {
+            log('subtitles load error', error);
+        }, null, {
+            dataType: 'text',
+            timeout: 1000 * 15
+        });
+    }
+
+    function startTranscoding(data, track, audioRelIndex) {
         stopHeartbeat();
         ensureJobStopped(true);
 
         var payload = {
             src: resolveMediaUrl(data),
-            audio: { index: track.index -1 },
-            live: false
+            audio: { index: audioRelIndex != null ? audioRelIndex : 0 },
+            live: false,
+            subtitles: true
         };
-
-        /*if (data && data.subtitles) {
-            payload.subtitles = !!data.subtitles;
-        }*/
 
         var net = new Lampa.Reguest();
         net.native(account(API_BASE + '/transcoding/start'), function (response) {
@@ -176,9 +197,13 @@
 			playback.transcoding = true;
 			playback.ffprobe = null;
             playback.url = json.playlistUrl;
-            playback.subtitles_call = json.subtitlesUrl;
             playback.hls_manifest_timeout = json.hls_timeout_seconds * 1000;
             Lampa.Player.play(playback);
+
+            // Load subtitles from server after player starts
+            if (json.subtitlesUrl) {
+                loadSubtitles(json.subtitlesUrl);
+            }
 			
         }, function (error) {
             hideWait();

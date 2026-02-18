@@ -79,8 +79,26 @@
 
   function start() {
     {deny}
-	
+
     if (lampainit_invc) lampainit_invc.appready();
+
+    // Always sync plugins from server — add any missing ones
+    var plugins = Lampa.Plugins.get();
+    var plugins_add = [{initiale}];
+    var plugins_push = [];
+
+    plugins_add.forEach(function(plugin) {
+      if (!plugins.find(function(a) {
+          return a.url == plugin.url;
+        })) {
+        Lampa.Plugins.add(plugin);
+        Lampa.Plugins.save();
+        plugins_push.push(plugin.url);
+      }
+    });
+
+    if (plugins_push.length) Lampa.Utils.putScript(plugins_push, function() {}, function() {}, function() {}, true);
+
     if (Lampa.Storage.get('lampac_initiale', 'false')) return;
 
     Lampa.Storage.set('lampac_initiale', 'true');
@@ -95,25 +113,6 @@
     Lampa.Storage.set('jackett_key', '1');
     Lampa.Storage.set('parser_torrent_type', 'jackett');
 
-    var plugins = Lampa.Plugins.get();
-
-    var plugins_add = [{initiale}];
-
-    var plugins_push = [];
-
-    plugins_add.forEach(function(plugin) {
-      if (!plugins.find(function(a) {
-          return a.url == plugin.url;
-        })) {
-        Lampa.Plugins.add(plugin);
-        Lampa.Plugins.save();
-
-        plugins_push.push(plugin.url);
-      }
-    });
-
-    if (plugins_push.length) Lampa.Utils.putScript(plugins_push, function() {}, function() {}, function() {}, true);
-	
     if (lampainit_invc)
       lampainit_invc.first_initiale();
 

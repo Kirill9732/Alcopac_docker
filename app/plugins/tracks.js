@@ -76,10 +76,11 @@
         if (inited_parse) {
           var new_tracks = [];
           var video_tracks = getTracks();
-          var parse_tracks = inited_parse.streams.filter(function (a) {
+          var all_audio = inited_parse.streams.filter(function (a) {
             return a.codec_type == 'audio';
           });
-          var minus = 1;
+          var first_audio_index = all_audio.length ? all_audio[0].index : 1;
+          var parse_tracks = all_audio.slice();
           log('Tracks', 'set tracks:', video_tracks.length);
           if (parse_tracks.length !== video_tracks.length) parse_tracks = parse_tracks.filter(function (a) {
             return a.codec_name !== 'dts';
@@ -88,10 +89,10 @@
             return a.tags;
           });
           log('Tracks', 'filtred tracks:', parse_tracks.length);
-          parse_tracks.forEach(function (track) {
-            var orig = video_tracks[track.index - minus];
+          parse_tracks.forEach(function (track, i) {
+            var orig = video_tracks[i];
             var elem = {
-              index: track.index - minus,
+              index: i,
               language: track.tags.language,
               label: track.tags.title || track.tags.handler_name,
               ghost: orig ? false : true,
@@ -130,21 +131,18 @@
           var parse_subs = inited_parse.streams.filter(function (a) {
             return a.codec_type == 'subtitle';
           });
-          var minus = inited_parse.streams.filter(function (a) {
-            return a.codec_type == 'audio';
-          }).length + 1;
           log('Tracks', 'set subs:', video_subs.length);
           parse_subs = parse_subs.filter(function (a) {
             return a.tags;
           });
           log('Tracks', 'filtred subs:', parse_subs.length);
-          parse_subs.forEach(function (track) {
-            var orig = video_subs[track.index - minus];
+          parse_subs.forEach(function (track, i) {
+            var orig = video_subs[i];
             var elem = {
-              index: track.index - minus,
+              index: i,
               language: track.tags.language,
               label: track.tags.title || track.tags.handler_name,
-              ghost: video_subs[track.index - minus] ? false : true,
+              ghost: orig ? false : true,
               selected: orig ? orig.selected == true || orig.mode == 'showing' : false
             };
             console.log('Tracks', 'subs original', orig);
@@ -382,7 +380,7 @@
     }
 
     Lampa.Player.listener.follow('start', function (data) {
-      if (data.torrent_hash) subscribeTracks(data);
+      if (data.torrent_hash && !data.transcoding && !/\/transcoding\//i.test(data.url)) subscribeTracks(data);
     });
     Lampa.Listener.follow('torrent_file', function (data) {
       if (data.type == 'list_open') list_opened = true;
