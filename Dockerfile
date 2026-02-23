@@ -63,6 +63,7 @@ COPY app/wwwroot  /opt/lampac/_defaults/wwwroot
 COPY app/torrserver /opt/lampac/_defaults/torrserver
 COPY app/bin      /opt/lampac/_defaults/bin
 COPY templates    /opt/lampac/_defaults/templates
+COPY app/config.toml /opt/lampac/_defaults/config.toml
 
 # ── статичные файлы (не перекрываются volumes) ──
 COPY app/plugins  /opt/lampac/plugins

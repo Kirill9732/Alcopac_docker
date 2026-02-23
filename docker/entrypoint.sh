@@ -53,6 +53,12 @@ if [ ! -f "$CONFIG_DIR/init.json" ] && [ -f "$DEFAULTS_DIR/templates/init.json.e
   cp "$DEFAULTS_DIR/templates/init.json.example" "$CONFIG_DIR/init.json"
 fi
 
+# config.toml (primary TOML config — created if missing)
+if [ ! -f "$CONFIG_DIR/config.toml" ] && [ -f "$DEFAULTS_DIR/config.toml" ]; then
+  echo "[entrypoint] Создаю config/config.toml из шаблона..."
+  cp "$DEFAULTS_DIR/config.toml" "$CONFIG_DIR/config.toml"
+fi
+
 # ── права на приватные файлы ──
 chmod 0600 "$APP_DIR/cache/aeskey" 2>/dev/null || true
 chmod 0600 "$APP_DIR/torrserver/accs.db" 2>/dev/null || true

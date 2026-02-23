@@ -1,0 +1,282 @@
+[admin]
+password = ''
+
+[browser_pool]
+max_concurrent = 8
+stream_cache_max = 2000
+stream_cache_ttl_h = 8
+
+[compat]
+repo_root = '.'
+
+[cub]
+domain = 'cub.red'
+enable = true
+mirror = ''
+scheme = 'http'
+view_ru = true
+
+[kit]
+cache_to_seconds = 60
+enable = false
+encrypt = true
+
+[llm]
+api_key = ''
+endpoint = ''
+model = 'qwen2.5-coder-14b'
+
+[observability]
+access_log = true
+health_path = '/healthz'
+metrics_path = '/metrics'
+
+[online]
+check_online_search = true
+with_search = ['kinotochka', 'kinobase', 'kinopub', 'lumex', 'filmix', 'filmixtv', 'fxapi', 'redheadsound', 'rezka', 'rhsprem', 'kodik', 'remux', 'kinoukr', 'rc/filmix', 'rc/fxapi', 'rc/rhs', 'vcdn', 'videocdn', 'collaps', 'collaps-dash', 'vdbmovies', 'hdvb', 'alloha', 'veoveo', 'rutubemovie', 'vkmovie', 'videoseed', 'mirage']
+
+[online.alloha]
+api_host = 'https://api.apbugall.org'
+token = ''
+
+[online.aniliberty]
+host = 'https://api.anilibria.app'
+
+[online.anilibria]
+host = 'https://anilibria.top'
+
+[online.animebesst]
+host = 'https://anime1.best'
+
+[online.animedia]
+host = 'https://amd.online'
+
+[online.animego]
+host = 'https://animego.me'
+
+[online.animelib]
+host = 'https://api.cdnlibs.org'
+token = ''
+
+[online.animevost]
+host = 'https://animevost.org'
+
+[online.ashdi]
+host = 'https://base.ashdi.vip'
+
+[online.cdnmovies]
+host = 'https://coldcdn.xyz'
+
+[online.cdnvideohub]
+host = 'https://plapi.cdnvideohub.com'
+
+[online.collaps]
+api_host = 'https://api.variyt.ws'
+list_host = ''
+token = ''
+
+[online.eneyida]
+host = 'https://eneyida.tv'
+
+[online.fancdn]
+host = 'https://1fanserials.net'
+
+[online.filmix]
+hls = false
+host = 'http://filmixapp.cyou'
+pro = false
+reserve = false
+token = ''
+tokens = []
+
+[online.filmix_partner]
+token = ''
+
+[online.filmix_tv]
+host = 'https://api.filmix.tv'
+
+[online.getstv]
+host = 'https://getstv.com'
+token = ''
+
+[online.hdvb]
+api_host = 'https://apivb.com'
+token = '5e2fe4c70bafd9a7414c4f170ee1b192'
+
+[online.iframe_video]
+api_host = 'https://iframe.video'
+cdn_host = 'https://videoframe.space'
+token = ''
+
+[online.iptv_online]
+host = 'https://iptv.online'
+token = ''
+
+[online.iremux]
+cookie = ''
+host = 'https://megaoblako.com'
+
+[online.kinobase]
+hdr = true
+host = 'https://kinobase.org'
+playerjs = true
+
+[online.kinogo]
+host = 'https://kinogo.luxury'
+
+[online.kinopub]
+filetype = ''
+host = 'https://api.srvkp.com'
+token = ''
+tokens = []
+
+[online.kinotochka]
+cookie = ''
+host = 'https://kinovibe.vip'
+
+[online.kinoukr]
+host = 'https://kinoukr.com'
+lookup_host = 'http://194.246.82.144'
+
+[online.kodik]
+api_host = 'https://kodikapi.com'
+token = ''
+
+[online.lumex]
+api_host = 'https://portal.lumex.host'
+client_id = ''
+iframe_host = 'lumex.space'
+token = ''
+
+[online.mirage]
+api_host = 'https://api.apbugall.org'
+link_host = 'https://quadrillion-as.stloadi.live'
+token = ''
+
+[online.moonanime]
+host = 'https://api.moonanime.art'
+token = ''
+
+[online.plvideo]
+host = 'https://api.g1.plvideo.ru'
+
+[online.redheadsound]
+host = 'https://redheadsound.studio'
+login = ''
+password = ''
+
+[online.rezka]
+enable = true
+enabled = true
+hls = true
+host = 'https://rezka-ua.tv/'
+premium = false
+
+[online.rutube_movie]
+host = 'https://rutube.ru'
+
+[online.vdbmovies]
+host = 'https://cdnmovies-stream.online'
+
+[online.veoveo]
+data_path = 'data/veoveo.json'
+host = 'https://api.rstprgapipt.com'
+
+[online.vibix]
+host = 'https://vibix.org'
+token = ''
+
+[online.videocdn]
+iframe_host = 'https://portal.lumex.host'
+token = ''
+
+[online.videodb]
+api_host = 'https://30bf3790.obrut.show'
+host = 'https://kinogo.media'
+
+[online.videoseed]
+host = 'https://videoseed.tv'
+token = ''
+
+[online.vk_movie]
+host = 'https://api.vkvideo.ru'
+token_url = 'https://login.vk.com/?act=get_anonym_token'
+
+[online.vokino]
+host = 'http://api.vokino.org/'
+token = ''
+
+[online.zetflix]
+cdn = ''
+hls = true
+host = 'https://go.zet-flix.online'
+stream_proxy = true
+
+[proxy_link]
+cache_dir = 'cache'
+encrypt_aes = true
+verify_ip = true
+
+[server]
+addr = ':888'
+
+[server_proxy]
+max_length_m3u = 5000000
+response_content_length = true
+
+[server_proxy.image]
+cache = true
+cache_rsize = true
+cache_time = 60
+jacred_host = 'https://jacred.xyz'
+
+[sisi]
+component = 'sisi'
+history_enable = true
+push_all = true
+spider = true
+
+[sync]
+enable = false
+
+[telegram]
+admin_id = 201955082
+auto_approve = false
+auto_approve_days = 30
+bot_token = '1659280305:AAFvyDXUQWEriAWii0TBsj35zlmyZ2IctZg'
+enable = true
+max_devices_per_user = 3
+
+[tmdb_proxy]
+host = 'tmdb.alcopa.cc'
+mode = 'alcopa'
+
+[torrserver]
+port = 9080
+
+[transcoding]
+enable = false
+ffmpeg = 'ffmpeg'
+max_concurrent_jobs = 5
+temp_root = 'cache/transcoding'
+
+[web]
+[web.plugins]
+ads_free = true
+adsfree = false
+backup = true
+bookmark = true
+catalog = true
+dlna = true
+online = true
+sisi = true
+sync = true
+timecode = true
+tmdbProxy = true
+tmdb_proxy = true
+torrserver = true
+tracks = true
+transcoding = true
+
+[websocket]
+type = 'nws'

@@ -6,7 +6,7 @@
       unic_id = Lampa.Utils.uid(8).toLowerCase();
       Lampa.Storage.set('lampac_unic_id', unic_id);
     }
-	
+
     function account(url){
       if (url.indexOf('account_email=') == -1) {
         var email = Lampa.Storage.get('account_email');
@@ -17,24 +17,43 @@
         var uid = Lampa.Storage.get('lampac_unic_id', '');
         if (uid) url = Lampa.Utils.addUrlComponent(url, 'uid=' + encodeURIComponent(uid));
       }
-	  
+
       if (url.indexOf('token=') == -1) {
         var token = '{token}';
         if (token != '') url = Lampa.Utils.addUrlComponent(url, 'token={token}');
       }
-	  
+
       return url;
     }
 
-    Lampa.Storage.set('proxy_tmdb', true);
+    function applyProxy() {
+      Lampa.Storage.set('proxy_tmdb', true);
 
-    Lampa.TMDB.image = function (url) {
-      return '{localhost}/tmdb/img/' + account(url);
-    };
+      Lampa.TMDB.image = function (url) {
+        return '{localhost}/tmdb/img/' + account(url);
+      };
 
-    Lampa.TMDB.api = function (url) {
-      return '{localhost}/tmdb/api/3/' + account(url);
-    };
+      Lampa.TMDB.api = function (url) {
+        return '{localhost}/tmdb/api/3/' + account(url);
+      };
+    }
+
+    // Apply immediately
+    applyProxy();
+
+    // Re-apply after delay to override Lampa's built-in TMDBProxy.init()
+    // which runs asynchronously after geo-detection and overwrites our functions
+    setTimeout(applyProxy, 2000);
+    setTimeout(applyProxy, 5000);
+
+    // Also re-apply when Lampa app is fully ready
+    if (Lampa.Listener) {
+      Lampa.Listener.follow('app', function (e) {
+        if (e.type == 'ready') {
+          setTimeout(applyProxy, 500);
+        }
+      });
+    }
 
     Lampa.Settings.listener.follow('open', function (e) {
       if (e.name == 'tmdb') {

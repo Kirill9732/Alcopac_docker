@@ -3988,7 +3988,7 @@
     "group": 0,
     "group_hide": true,
     "hls": false,
-    "host": "http://api.vokino.org",
+    "host": "http://api.vokino.org/",
     "httptimeout": 8,
     "httpversion": 1,
     "kit": true,

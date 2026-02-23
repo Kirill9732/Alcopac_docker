@@ -7,28 +7,72 @@ on:
       - master
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      no_push:
+        description: "Skip push to registry (dry run)"
+        type: boolean
+        default: false
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
+  GO_VERSION: "1.24"
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
       packages: write
 
     steps:
+      # ── 1. Checkout ──
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      # ── 2. Go: setup + compile ──
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: lampac-go/go.sum
+
+      - name: Compile Go binaries (linux/amd64 + linux/arm64)
+        working-directory: lampac-go
+        run: |
+          echo "::group::Build linux/amd64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+            go build -ldflags="-s -w" -o ../app/lampac-go-amd64 ./cmd/lampac-go
+          echo "::endgroup::"
+
+          echo "::group::Build linux/arm64"
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 \
+            go build -ldflags="-s -w" -o ../app/lampac-go-arm64 ./cmd/lampac-go
+          echo "::endgroup::"
+
+          ls -lh ../app/lampac-go-*
+          file ../app/lampac-go-amd64
+          file ../app/lampac-go-arm64
+
+      # ── 3. Package tar.gz archives ──
+      - name: Package archives for curl installer
+        run: |
+          tar -czf plugins.tar.gz  --exclude='.DS_Store' -C app plugins
+          tar -czf wwwroot.tar.gz  --exclude='.DS_Store' -C app wwwroot
+          tar -czf module.tar.gz   --exclude='.DS_Store' -C app module
+          ls -lh *.tar.gz
+
+      # ── 4. Docker: QEMU + Buildx ──
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      # ── 5. Docker: login ──
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
@@ -37,6 +81,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # ── 6. Docker: metadata ──
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
@@ -49,13 +94,27 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push
+      # ── 7. Docker: build + push ──
+      - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' && !inputs.no_push }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # ── 8. GitHub Release (only on v* tag) ──
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            app/lampac-go-amd64
+            app/lampac-go-arm64
+            plugins.tar.gz
+            wwwroot.tar.gz
+            module.tar.gz

@@ -33,7 +33,7 @@
   window.lampa_settings.disable_features.reactions = false;     // cub реакции
   window.lampa_settings.disable_features.discuss = false;       // cub комментарии
   window.lampa_settings.disable_features.ai = false;            // cub AI-поиск
-  window.lampa_settings.disable_features.install_proxy = false; // cub tmdb proxy
+  window.lampa_settings.disable_features.install_proxy = true;  // disable cub tmdb proxy — our tmdbproxy.js handles it
   window.lampa_settings.disable_features.subscribe = false;     // cub подписки
   window.lampa_settings.disable_features.blacklist = false;     // Черный список плагинов
   window.lampa_settings.disable_features.persons = false;       // Подписка на актеров
