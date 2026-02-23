@@ -35,7 +35,7 @@ ALPAC — это self-hosted backend для Lampa с фокусом на быс�
 
 ```
 git clone https://github.com/Kirill9732/Alcopac_docker.git
-cd Alcopac_docker/for_docker
+cd Alcopac_docker/
 chmod +x install.sh
 ./install.sh
 docker compose up -d --build
