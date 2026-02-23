@@ -17,6 +17,28 @@
   
   {rch_websoket}
 
+  // FNV-1a hash for device fingerprint
+  function fnv1a(str) {
+    var h = 0x811c9dc5;
+    for (var i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193);
+    }
+    return (h >>> 0).toString(16);
+  }
+
+  // Device fingerprint: stable hash of screen + timezone + lang + platform
+  var device_fp = '';
+  try {
+    var fpParts = [
+      screen.width + 'x' + screen.height,
+      (typeof Intl !== 'undefined' && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
+      navigator.language || '',
+      navigator.platform || ''
+    ];
+    device_fp = fnv1a(fpParts.join('|'));
+  } catch(e) {}
+
   function account(url) {
     url = url + '';
     if (url.indexOf('account_email=') == -1) {
@@ -30,6 +52,9 @@
     if (url.indexOf('token=') == -1) {
       var token = '{token}';
       if (token != '') url = Lampa.Utils.addUrlComponent(url, 'token={token}');
+    }
+    if (url.indexOf('fp=') == -1 && device_fp) {
+      url = Lampa.Utils.addUrlComponent(url, 'fp=' + encodeURIComponent(device_fp));
     }
     if (url.indexOf('nws_id=') == -1 && window.rch_nws && window.rch_nws[hostkey]) {
       var nws_id = window.rch_nws[hostkey].connectionId || Lampa.Storage.get('lampac_nws_id', '');

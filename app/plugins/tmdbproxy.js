@@ -1,6 +1,11 @@
 (function () {
     'use strict';
 
+    var proxyMode = '{tmdb_proxy_mode}';
+    if (proxyMode === 'disabled') return;
+
+    var proxyBase = '{tmdb_proxy_base}';
+
     var unic_id = Lampa.Storage.get('lampac_unic_id', '');
     if (!unic_id) {
       unic_id = Lampa.Utils.uid(8).toLowerCase();
@@ -30,11 +35,11 @@
       Lampa.Storage.set('proxy_tmdb', true);
 
       Lampa.TMDB.image = function (url) {
-        return '{localhost}/tmdb/img/' + account(url);
+        return proxyBase + '/tmdb/img/' + account(url);
       };
 
       Lampa.TMDB.api = function (url) {
-        return '{localhost}/tmdb/api/3/' + account(url);
+        return proxyBase + '/tmdb/api/3/' + account(url);
       };
     }
 
