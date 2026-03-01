@@ -16,6 +16,9 @@ mirror = ''
 scheme = 'http'
 view_ru = true
 
+[kinopoisk]
+token = '037e4e21-7cd3-4d6f-825d-df11493c00e1'
+
 [kit]
 cache_to_seconds = 60
 enable = false
@@ -192,7 +195,10 @@ token = ''
 
 [online.videodb]
 api_host = 'https://30bf3790.obrut.show'
+enable = true
+enabled = true
 host = 'https://kinogo.media'
+videodb_cloud = 'https://videodb.cloud'
 
 [online.videoseed]
 host = 'https://videoseed.tv'
@@ -240,11 +246,11 @@ spider = true
 enable = false
 
 [telegram]
-admin_id = 201955082
+admin_id = 0
 auto_approve = false
 auto_approve_days = 30
-bot_token = '1659280305:AAFvyDXUQWEriAWii0TBsj35zlmyZ2IctZg'
-enable = true
+bot_token = ''
+enable = false
 max_devices_per_user = 3
 
 [tmdb_proxy]
@@ -252,6 +258,7 @@ host = 'tmdb.alcopa.cc'
 mode = 'alcopa'
 
 [torrserver]
+external_player_protocol = ''
 port = 9080
 
 [transcoding]

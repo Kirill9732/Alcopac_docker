@@ -365,10 +365,10 @@ body.no--animation .background canvas {
   height: 3em;
   width: 3em;
   background: url(../img/loader.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   position: absolute;
   top: 50%;
   left: 50%;
@@ -1266,10 +1266,10 @@ body.light--version .wrap__left {
 }
 .head__split {
   background: url(../img/icons/split.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   width: 1em;
   height: 1.3em;
   margin: 0 1em;
@@ -1506,10 +1506,10 @@ body.mouse--controll:not(.true--mobile) .head__backward {
   background-image: url(../img/loader.svg);
   background-position: 50% 50%;
   background-repeat: no-repeat;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   width: 1.6em;
   height: 1.6em;
 }
@@ -4589,10 +4589,10 @@ body.touch-device.orientation--landscape .full-start__background {
   width: 2em;
   height: 2em;
   background: url(../img/icons/add.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   margin-left: -1em;
   margin-top: -1em;
 }
@@ -5099,6 +5099,7 @@ video::-webkit-media-controls-panel-container {
           align-items: center;
   margin-top: -0.5em;
   opacity: 0;
+  text-shadow: 0 0 0.4em black;
 }
 .player-video__backwork-icon > i, .player-video__forward-icon > i {
   margin: 0 1em;
@@ -6178,11 +6179,6 @@ body.true--mobile .player-info .head-backward__button {
   left: -1.5em;
   top: -0.9em;
 }
-@media screen and (max-width: 480px) {
-  body.true--mobile .player-info .head-backward__button {
-    left: 0;
-  }
-}
 
 .player.iptv .player-info__name {
   display: none;
@@ -6203,15 +6199,15 @@ body.true--mobile .player-info .head-backward__button {
   display: none;
 }
 
-body.mouse--controll .player-info__body {
+body:not(.true--mobile).mouse--controll .player-info__body {
   padding-left: 5em;
 }
-body.mouse--controll .player-info .head-backward {
+body:not(.true--mobile).mouse--controll .player-info .head-backward {
   position: absolute;
   left: 0;
   top: 1.1em;
 }
-body.mouse--controll .player-info .head-backward__title {
+body:not(.true--mobile).mouse--controll .player-info .head-backward__title {
   display: none;
 }
 
@@ -7029,10 +7025,10 @@ body.selectbox--open .selectbox__layer {
   width: 1.9em;
   height: 1.9em;
   background: url(../img/loader.svg) no-repeat center;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
 }
 
 .category-full {
@@ -7468,10 +7464,10 @@ body.true--mobile .search .simple-keyboard input {
 .simple-keyboard .hg-button[data-skbtn="{SPACE}"]:after {
   content: "";
   display: block;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   background-repeat: no-repeat;
   background-position: 50% 50%;
   height: 1em;
@@ -7882,10 +7878,10 @@ body.true--mobile .simple-keyboard--with-mic .simple-keyboard-buttons {
 .modal-loading {
   height: 6em;
   background: url(../img/loader.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
 }
 
 .modal-pending {
@@ -7893,10 +7889,10 @@ body.true--mobile .simple-keyboard--with-mic .simple-keyboard-buttons {
 }
 .modal-pending__loading {
   background: url(../img/loader.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   height: 6em;
 }
 .modal-pending__text {
@@ -8313,10 +8309,10 @@ body.true--mobile .simple-keyboard--with-mic .simple-keyboard-buttons {
 .empty__img {
   height: 17em;
   background: url(../img/empty.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   margin-bottom: 3em;
 }
 .empty__icon svg, .empty__icon img {
@@ -9322,10 +9318,10 @@ body.true--mobile .notice {
   display: inline-block;
   background-repeat: no-repeat;
   background-position: 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   margin-top: -0.2em;
 }
 .torrent-item__ffprobe > div.m-video::before {
@@ -9886,10 +9882,10 @@ body.true--mobile .notice {
   width: 1em;
   height: 1em;
   background: url(../img/icons/menu/catalog.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
   margin-right: 0.7em;
   margin-top: -0.3em;
 }
@@ -10725,10 +10721,10 @@ body.platform--netcast .about__contacts > div {
   width: 7em;
   height: 7em;
   background: url(../img/error.svg) no-repeat 50% 50%;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
 }
 .error__text {
   font-size: 1.4em;
@@ -10897,10 +10893,10 @@ body.platform--netcast .about__contacts > div {
   margin-left: -1em;
   margin-top: -1em;
   background: url(../img/loader.svg) no-repeat center center;
-  -webkit-background-size: cover;
-     -moz-background-size: cover;
-       -o-background-size: cover;
-          background-size: cover;
+  -webkit-background-size: contain;
+     -moz-background-size: contain;
+       -o-background-size: contain;
+          background-size: contain;
 }
 .season-episode__head, .season-episode__footer {
   display: -webkit-box;
