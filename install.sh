@@ -472,7 +472,7 @@ do_install() {
 do_update() {
   banner "Update                 "
 
-  TOTAL_STEPS=5
+  TOTAL_STEPS=6
 
   # ─── Шаг 1: Проверка ──────────────────────────────────
 
@@ -497,10 +497,6 @@ do_update() {
     fi
   fi
 
-  if [ ! -f "$ROOT_DIR/app/lampac-go-amd64" ] || [ ! -f "$ROOT_DIR/app/lampac-go-arm64" ]; then
-    err "Не найдены бинарники app/lampac-go-amd64 и/или app/lampac-go-arm64."
-  fi
-
   LISTEN_PORT=$(get_port)
 
   HOST_ARCH="$(uname -m)"
@@ -516,15 +512,110 @@ do_update() {
     warn "Контейнер: ${YELLOW}остановлен${NC}"
   fi
 
-  # Показать размеры бинарников
-  local amd_size arm_size
-  amd_size=$(stat -c%s "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || echo "?")
-  arm_size=$(stat -c%s "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || echo "?")
-  info "Бинарники: amd64=${BOLD}${amd_size}${NC} arm64=${BOLD}${arm_size}${NC}"
+  # Показать текущие размеры бинарников
+  if [ -f "$ROOT_DIR/app/lampac-go-amd64" ]; then
+    local amd_size arm_size
+    amd_size=$(stat -c%s "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || echo "?")
+    arm_size=$(stat -c%s "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || echo "?")
+    info "Текущие бинарники: amd64=${BOLD}${amd_size}${NC} arm64=${BOLD}${arm_size}${NC}"
+  fi
 
-  # ─── Шаг 2: Обновление TorrServer ──────────────────────
+  # ─── Шаг 2: Скачивание обновлений ──────────────────────
 
-  step 2 "TorrServer"
+  step 2 "Скачивание обновлений"
+
+  local DOWNLOAD_BASE="https://dev.alcopa.cc/download"
+
+  # 2a. Бинарники
+  info "Скачиваю бинарники..."
+  curl -fSL --progress-bar -o "$ROOT_DIR/app/lampac-go-amd64" "${DOWNLOAD_BASE}/linux/amd64" \
+    || err "Не удалось скачать lampac-go-amd64"
+  curl -fSL --progress-bar -o "$ROOT_DIR/app/lampac-go-arm64" "${DOWNLOAD_BASE}/linux/arm64" \
+    || err "Не удалось скачать lampac-go-arm64"
+  chmod 0755 "$ROOT_DIR/app/lampac-go-amd64" "$ROOT_DIR/app/lampac-go-arm64"
+
+  local new_amd new_arm
+  new_amd=$(stat -c%s "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || echo "?")
+  new_arm=$(stat -c%s "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || echo "?")
+  log "Бинарники: amd64=${BOLD}${new_amd}${NC} arm64=${BOLD}${new_arm}${NC}"
+
+  # 2b. Ресурсы (wwwroot, plugins)
+  info "Скачиваю wwwroot..."
+  if curl -fSL --progress-bar -o /tmp/wwwroot.tar.gz "${DOWNLOAD_BASE}/wwwroot.tar.gz" 2>/dev/null; then
+    rm -rf "$ROOT_DIR/app/wwwroot"
+    mkdir -p "$ROOT_DIR/app/wwwroot"
+    tar -xzf /tmp/wwwroot.tar.gz -C "$ROOT_DIR/app" 2>/dev/null || \
+    tar -xzf /tmp/wwwroot.tar.gz -C "$ROOT_DIR/app/wwwroot" 2>/dev/null
+    rm -f /tmp/wwwroot.tar.gz
+    log "wwwroot обновлён"
+  else
+    warn "Не удалось скачать wwwroot"
+  fi
+
+  info "Скачиваю plugins..."
+  if curl -fSL --progress-bar -o /tmp/plugins.tar.gz "${DOWNLOAD_BASE}/plugins.tar.gz" 2>/dev/null; then
+    # Сохраняем пользовательские плагины
+    if [ -d "$ROOT_DIR/app/plugins/custom" ] && [ "$(ls -A "$ROOT_DIR/app/plugins/custom" 2>/dev/null)" ]; then
+      cp -r "$ROOT_DIR/app/plugins/custom" /tmp/plugins-custom-backup
+    fi
+    rm -rf "$ROOT_DIR/app/plugins"
+    mkdir -p "$ROOT_DIR/app/plugins"
+    tar -xzf /tmp/plugins.tar.gz -C "$ROOT_DIR/app" 2>/dev/null || \
+    tar -xzf /tmp/plugins.tar.gz -C "$ROOT_DIR/app/plugins" 2>/dev/null
+    rm -f /tmp/plugins.tar.gz
+    # Восстанавливаем пользовательские плагины
+    if [ -d /tmp/plugins-custom-backup ]; then
+      mkdir -p "$ROOT_DIR/app/plugins/custom"
+      cp -r /tmp/plugins-custom-backup/. "$ROOT_DIR/app/plugins/custom/"
+      rm -rf /tmp/plugins-custom-backup
+      log "Пользовательские плагины восстановлены"
+    fi
+    log "Плагины обновлены"
+  else
+    warn "Не удалось скачать плагины"
+  fi
+
+  # 2c. Инфраструктура Docker (Dockerfile, docker-compose.yml, entrypoint.sh, install.sh)
+  local GH_RAW="https://raw.githubusercontent.com/Kirill9732/Alcopac_docker/main"
+  info "Обновляю Docker-инфраструктуру..."
+
+  local infra_ok=true
+  for f in Dockerfile docker-compose.yml; do
+    if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/${f}.new" "${GH_RAW}/${f}" 2>/dev/null; then
+      mv "$ROOT_DIR/${f}.new" "$ROOT_DIR/${f}"
+    else
+      rm -f "$ROOT_DIR/${f}.new"
+      warn "Не удалось обновить ${f}"
+      infra_ok=false
+    fi
+  done
+
+  if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/docker/entrypoint.sh.new" "${GH_RAW}/docker/entrypoint.sh" 2>/dev/null; then
+    mv "$ROOT_DIR/docker/entrypoint.sh.new" "$ROOT_DIR/docker/entrypoint.sh"
+    chmod +x "$ROOT_DIR/docker/entrypoint.sh"
+  else
+    rm -f "$ROOT_DIR/docker/entrypoint.sh.new"
+    warn "Не удалось обновить entrypoint.sh"
+    infra_ok=false
+  fi
+
+  # Самообновление install.sh
+  if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/install.sh.new" "${GH_RAW}/install.sh" 2>/dev/null; then
+    mv "$ROOT_DIR/install.sh.new" "$ROOT_DIR/install.sh"
+    chmod +x "$ROOT_DIR/install.sh"
+  else
+    rm -f "$ROOT_DIR/install.sh.new"
+    warn "Не удалось обновить install.sh"
+    infra_ok=false
+  fi
+
+  if [ "$infra_ok" = true ]; then
+    log "Docker-инфраструктура обновлена"
+  fi
+
+  # ─── Шаг 3: Обновление TorrServer ──────────────────────
+
+  step 3 "TorrServer"
 
   local torr_arch=""
   case "$TARGET_ARCH" in
@@ -573,26 +664,26 @@ do_update() {
     fi
   fi
 
-  # ─── Шаг 3: Остановка ──────────────────────────────────
+  # ─── Шаг 4: Остановка ──────────────────────────────────
 
-  step 3 "Остановка контейнера"
+  step 4 "Остановка контейнера"
 
   cd "$ROOT_DIR"
   $COMPOSE_CMD down 2>/dev/null || true
   log "Контейнер остановлен"
 
-  # ─── Шаг 4: Пересборка ─────────────────────────────────
+  # ─── Шаг 5: Пересборка ─────────────────────────────────
 
-  step 4 "Пересборка образа"
+  step 5 "Пересборка образа"
 
   info "Сборка Docker-образа (без кэша)..."
   $COMPOSE_CMD build --no-cache
 
   log "Образ пересобран"
 
-  # ─── Шаг 5: Запуск ──────────────────────────────────────
+  # ─── Шаг 6: Запуск ──────────────────────────────────────
 
-  step 5 "Запуск"
+  step 6 "Запуск"
 
   $COMPOSE_CMD up -d
   sleep 3
@@ -608,6 +699,11 @@ do_update() {
   local_code=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 \
     "http://127.0.0.1:${LISTEN_PORT}/healthz" 2>/dev/null || echo "000")
   [ "$local_code" = "200" ] && log "Health-check: ${GREEN}OK${NC}" || warn "Health-check: код $local_code"
+
+  # Показать версию из нового образа
+  local new_ver
+  new_ver=$(docker exec "${CONTAINER_NAME}" /usr/local/bin/lampac-go -version 2>/dev/null || echo "")
+  [ -n "$new_ver" ] && log "Версия: ${BOLD}${new_ver}${NC}"
 
   IP=$(hostname -I 2>/dev/null | awk '{print $1}' || echo "YOUR_IP")
 
