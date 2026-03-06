@@ -265,16 +265,16 @@ hls = true
 host = 'https://rezka-ua.tv/'
 premium = false
 
+[online.rgshows]
+enable = true
+enabled = true
+
 [online.rhsprem]
 enable = false
 enabled = false
 hls = true
 host = 'https://rezka-ua.tv/'
 premium = true
-
-[online.rgshows]
-enable = true
-enabled = true
 
 [online.rutube_movie]
 enable = true
@@ -392,6 +392,9 @@ auto_approve_days = 30
 bot_token = ''
 enable = false
 max_devices_per_user = 3
+
+[telegram.auth_page]
+bg_color = '#2a2a3e'
 
 [tmdb_proxy]
 api_host = 'apitmdb.cub.red'

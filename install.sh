@@ -151,6 +151,53 @@ get_port() {
   grep -o 'LAMPAC_GO_PORT=[0-9]*' "$ROOT_DIR/.env" 2>/dev/null | cut -d= -f2 || echo "18118"
 }
 
+REPO_URL="https://github.com/Kirill9732/Alcopac_docker.git"
+
+# Обновить файлы инсталлера из git-репозитория.
+# Если .git отсутствует — инициализирует репозиторий и подтягивает.
+# Перезапускает скрипт после обновления, чтобы использовать новый код.
+self_update() {
+  ensure_cmd git
+
+  cd "$ROOT_DIR"
+
+  if [ -d ".git" ]; then
+    info "Проверяю обновления..."
+    local old_head new_head
+    old_head="$(git rev-parse HEAD 2>/dev/null || echo "none")"
+
+    git fetch --quiet origin 2>/dev/null || { warn "git fetch не удался — используем текущие файлы"; return 0; }
+    new_head="$(git rev-parse origin/main 2>/dev/null || git rev-parse origin/master 2>/dev/null || echo "none")"
+
+    if [ "$old_head" = "$new_head" ]; then
+      log "Файлы актуальны"
+      return 0
+    fi
+
+    info "Обновляю файлы..."
+    git reset --hard "$new_head" 2>/dev/null || { warn "git reset не удался"; return 0; }
+    log "Обновлено до $(echo "$new_head" | head -c 8)"
+  else
+    info "Инициализирую git-репозиторий для автообновлений..."
+
+    git init -q 2>/dev/null || { warn "git init не удался"; return 0; }
+    git remote add origin "$REPO_URL" 2>/dev/null || git remote set-url origin "$REPO_URL" 2>/dev/null
+    git fetch --quiet origin 2>/dev/null || { warn "git fetch не удался — используем текущие файлы"; return 0; }
+
+    local branch
+    branch="$(git remote show origin 2>/dev/null | grep 'HEAD branch' | awk '{print $NF}')"
+    branch="${branch:-main}"
+
+    git reset --hard "origin/$branch" 2>/dev/null || { warn "git reset не удался"; return 0; }
+    log "Репозиторий инициализирован и обновлён"
+  fi
+
+  # Перезапустить скрипт с новым кодом
+  info "Перезапускаю с обновлённым скриптом..."
+  export SKIP_SELF_UPDATE=1
+  exec "$0" "$@"
+}
+
 # ============================================================
 # Install
 # ============================================================
@@ -520,98 +567,23 @@ do_update() {
     info "Текущие бинарники: amd64=${BOLD}${amd_size}${NC} arm64=${BOLD}${arm_size}${NC}"
   fi
 
-  # ─── Шаг 2: Скачивание обновлений ──────────────────────
+  # ─── Шаг 2: Обновление файлов ──────────────────────────
 
-  step 2 "Скачивание обновлений"
+  step 2 "Проверка файлов"
 
-  local DOWNLOAD_BASE="https://dev.alcopa.cc/download"
+  # git pull уже выполнен в self_update() до входа в do_update()
 
-  # 2a. Бинарники
-  info "Скачиваю бинарники..."
-  curl -fSL --progress-bar -o "$ROOT_DIR/app/lampac-go-amd64" "${DOWNLOAD_BASE}/linux/amd64" \
-    || err "Не удалось скачать lampac-go-amd64"
-  curl -fSL --progress-bar -o "$ROOT_DIR/app/lampac-go-arm64" "${DOWNLOAD_BASE}/linux/arm64" \
-    || err "Не удалось скачать lampac-go-arm64"
+  # Проверяем наличие бинарников
+  if [ ! -f "$ROOT_DIR/app/lampac-go-amd64" ] || [ ! -f "$ROOT_DIR/app/lampac-go-arm64" ]; then
+    err "Не найдены бинарники app/lampac-go-amd64 и/или app/lampac-go-arm64. Сделайте git pull."
+  fi
+
   chmod 0755 "$ROOT_DIR/app/lampac-go-amd64" "$ROOT_DIR/app/lampac-go-arm64"
 
   local new_amd new_arm
-  new_amd=$(stat -c%s "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || echo "?")
-  new_arm=$(stat -c%s "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || echo "?")
-  log "Бинарники: amd64=${BOLD}${new_amd}${NC} arm64=${BOLD}${new_arm}${NC}"
-
-  # 2b. Ресурсы (wwwroot, plugins)
-  info "Скачиваю wwwroot..."
-  if curl -fSL --progress-bar -o /tmp/wwwroot.tar.gz "${DOWNLOAD_BASE}/wwwroot.tar.gz" 2>/dev/null; then
-    rm -rf "$ROOT_DIR/app/wwwroot"
-    mkdir -p "$ROOT_DIR/app/wwwroot"
-    tar -xzf /tmp/wwwroot.tar.gz -C "$ROOT_DIR/app" 2>/dev/null || \
-    tar -xzf /tmp/wwwroot.tar.gz -C "$ROOT_DIR/app/wwwroot" 2>/dev/null
-    rm -f /tmp/wwwroot.tar.gz
-    log "wwwroot обновлён"
-  else
-    warn "Не удалось скачать wwwroot"
-  fi
-
-  info "Скачиваю plugins..."
-  if curl -fSL --progress-bar -o /tmp/plugins.tar.gz "${DOWNLOAD_BASE}/plugins.tar.gz" 2>/dev/null; then
-    # Сохраняем пользовательские плагины
-    if [ -d "$ROOT_DIR/app/plugins/custom" ] && [ "$(ls -A "$ROOT_DIR/app/plugins/custom" 2>/dev/null)" ]; then
-      cp -r "$ROOT_DIR/app/plugins/custom" /tmp/plugins-custom-backup
-    fi
-    rm -rf "$ROOT_DIR/app/plugins"
-    mkdir -p "$ROOT_DIR/app/plugins"
-    tar -xzf /tmp/plugins.tar.gz -C "$ROOT_DIR/app" 2>/dev/null || \
-    tar -xzf /tmp/plugins.tar.gz -C "$ROOT_DIR/app/plugins" 2>/dev/null
-    rm -f /tmp/plugins.tar.gz
-    # Восстанавливаем пользовательские плагины
-    if [ -d /tmp/plugins-custom-backup ]; then
-      mkdir -p "$ROOT_DIR/app/plugins/custom"
-      cp -r /tmp/plugins-custom-backup/. "$ROOT_DIR/app/plugins/custom/"
-      rm -rf /tmp/plugins-custom-backup
-      log "Пользовательские плагины восстановлены"
-    fi
-    log "Плагины обновлены"
-  else
-    warn "Не удалось скачать плагины"
-  fi
-
-  # 2c. Инфраструктура Docker (Dockerfile, docker-compose.yml, entrypoint.sh, install.sh)
-  local GH_RAW="https://raw.githubusercontent.com/Kirill9732/Alcopac_docker/main"
-  info "Обновляю Docker-инфраструктуру..."
-
-  local infra_ok=true
-  for f in Dockerfile docker-compose.yml; do
-    if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/${f}.new" "${GH_RAW}/${f}" 2>/dev/null; then
-      mv "$ROOT_DIR/${f}.new" "$ROOT_DIR/${f}"
-    else
-      rm -f "$ROOT_DIR/${f}.new"
-      warn "Не удалось обновить ${f}"
-      infra_ok=false
-    fi
-  done
-
-  if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/docker/entrypoint.sh.new" "${GH_RAW}/docker/entrypoint.sh" 2>/dev/null; then
-    mv "$ROOT_DIR/docker/entrypoint.sh.new" "$ROOT_DIR/docker/entrypoint.sh"
-    chmod +x "$ROOT_DIR/docker/entrypoint.sh"
-  else
-    rm -f "$ROOT_DIR/docker/entrypoint.sh.new"
-    warn "Не удалось обновить entrypoint.sh"
-    infra_ok=false
-  fi
-
-  # Самообновление install.sh
-  if curl -fsSL --connect-timeout 10 -o "$ROOT_DIR/install.sh.new" "${GH_RAW}/install.sh" 2>/dev/null; then
-    mv "$ROOT_DIR/install.sh.new" "$ROOT_DIR/install.sh"
-    chmod +x "$ROOT_DIR/install.sh"
-  else
-    rm -f "$ROOT_DIR/install.sh.new"
-    warn "Не удалось обновить install.sh"
-    infra_ok=false
-  fi
-
-  if [ "$infra_ok" = true ]; then
-    log "Docker-инфраструктура обновлена"
-  fi
+  new_amd=$(stat -c%s "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-amd64" 2>/dev/null || echo "?")
+  new_arm=$(stat -c%s "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || stat -f%z "$ROOT_DIR/app/lampac-go-arm64" 2>/dev/null || echo "?")
+  info "Бинарники: amd64=${BOLD}${new_amd}${NC} arm64=${BOLD}${new_arm}${NC}"
 
   # ─── Шаг 3: Обновление TorrServer ──────────────────────
 
@@ -896,6 +868,14 @@ for arg in "$@"; do
     install|update|remove) ACTION="$arg" ;;
   esac
 done
+
+# Автообновление файлов из git перед любым действием (кроме remove)
+if [ "${SKIP_SELF_UPDATE:-}" != "1" ]; then
+  case "${ACTION:-}" in
+    remove) ;; # при удалении обновляться не нужно
+    *) self_update "$@" ;;
+  esac
+fi
 
 case "${ACTION:-}" in
   install) do_install ;;

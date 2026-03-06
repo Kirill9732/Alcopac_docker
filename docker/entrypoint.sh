@@ -67,10 +67,23 @@ chmod 0600 "$APP_DIR/database/tgauth/tokens.json" 2>/dev/null || true
 # ── TorrServer (фоновый процесс) ──
 TS_BIN="$APP_DIR/torrserver/TorrServer-linux"
 TS_PORT="${TORRSERVER_PORT:-9080}"
+TS_ACCS="$APP_DIR/torrserver/accs.db"
 
 if [ -x "$TS_BIN" ]; then
+  # Auto-generate accs.db with random password if missing (secure by default).
+  if [ ! -f "$TS_ACCS" ]; then
+    TS_PASS=$(head -c 16 /dev/urandom | base64 | tr -dc 'a-zA-Z0-9' | head -c 16)
+    echo "{\"ts\":\"${TS_PASS}\"}" > "$TS_ACCS"
+    chmod 0600 "$TS_ACCS"
+    echo "[entrypoint] Сгенерирован пароль TorrServer (accs.db)"
+  fi
+
   echo "[entrypoint] Запуск TorrServer на порту ${TS_PORT}..."
-  "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" &
+  if [ -f "$TS_ACCS" ]; then
+    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" --accs "$TS_ACCS" &
+  else
+    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" &
+  fi
   TS_PID=$!
   echo "[entrypoint] TorrServer PID: $TS_PID"
 else
