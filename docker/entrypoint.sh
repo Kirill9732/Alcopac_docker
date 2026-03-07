@@ -65,9 +65,13 @@ chmod 0600 "$APP_DIR/torrserver/accs.db" 2>/dev/null || true
 chmod 0600 "$APP_DIR/database/tgauth/tokens.json" 2>/dev/null || true
 
 # ── TorrServer (фоновый процесс) ──
+# lampac-go also has a built-in process manager that will auto-start
+# TorrServer if it detects the binary but can't connect. This entrypoint
+# launch is the primary path; the Go manager is the fallback.
 TS_BIN="$APP_DIR/torrserver/TorrServer-linux"
 TS_PORT="${TORRSERVER_PORT:-9080}"
 TS_ACCS="$APP_DIR/torrserver/accs.db"
+TS_LOG="$APP_DIR/torrserver/torrserver.log"
 
 if [ -x "$TS_BIN" ]; then
   # Auto-generate accs.db with random password if missing (secure by default).
@@ -80,14 +84,38 @@ if [ -x "$TS_BIN" ]; then
 
   echo "[entrypoint] Запуск TorrServer на порту ${TS_PORT}..."
   if [ -f "$TS_ACCS" ]; then
-    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" --accs "$TS_ACCS" &
+    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" --accs "$TS_ACCS" \
+      > "$TS_LOG" 2>&1 &
   else
-    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" &
+    "$TS_BIN" --port "$TS_PORT" --path "$APP_DIR/torrserver" \
+      > "$TS_LOG" 2>&1 &
   fi
   TS_PID=$!
   echo "[entrypoint] TorrServer PID: $TS_PID"
+
+  # Health check: wait up to 5 seconds for TorrServer to respond.
+  TS_OK=0
+  for i in 1 2 3 4 5; do
+    sleep 1
+    if kill -0 "$TS_PID" 2>/dev/null; then
+      if curl -sf "http://127.0.0.1:${TS_PORT}/echo" >/dev/null 2>&1; then
+        TS_OK=1
+        echo "[entrypoint] ✓ TorrServer запущен (порт ${TS_PORT})"
+        break
+      fi
+    else
+      echo "[entrypoint] ✗ TorrServer процесс завершился (PID $TS_PID)"
+      echo "[entrypoint] Последние строки лога:"
+      tail -20 "$TS_LOG" 2>/dev/null || true
+      break
+    fi
+  done
+  if [ "$TS_OK" = "0" ] && kill -0 "$TS_PID" 2>/dev/null; then
+    echo "[entrypoint] ⚠ TorrServer запущен но не отвечает на порту ${TS_PORT} (возможно долгая инициализация)"
+  fi
 else
-  echo "[entrypoint] TorrServer не найден — пропускаю"
+  echo "[entrypoint] TorrServer бинарник не найден ($TS_BIN) — пропускаю"
+  echo "[entrypoint] Для установки: скачайте TorrServer-linux в $APP_DIR/torrserver/"
 fi
 
 echo "[entrypoint] Запуск lampac-go..."
