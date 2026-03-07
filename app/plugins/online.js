@@ -426,6 +426,11 @@
           network.timeout(3000);
           network.silent(account(url), function(json) {
             life_wait_times++;
+            if (!json || !Array.isArray(json.online)) {
+              if (life_wait_times > 15) { reject(); return; }
+              life_wait_timer = setTimeout(fin, 1000);
+              return;
+            }
             filter_sources = [];
             sources = {};
             json.online.forEach(function(j) {
