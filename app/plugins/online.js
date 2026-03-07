@@ -27,16 +27,88 @@
     return (h >>> 0).toString(16);
   }
 
-  // Device fingerprint: stable hash of screen + timezone + lang + platform
+  // ── Comprehensive device fingerprint ──
+  // Survives cache clear / app reinstall (based on hardware, not storage).
+  // ~15 signals: canvas, WebGL, audio, screen, hardware, timezone, math.
   var device_fp = '';
   try {
-    var fpParts = [
-      screen.width + 'x' + screen.height,
-      (typeof Intl !== 'undefined' && Intl.DateTimeFormat) ? Intl.DateTimeFormat().resolvedOptions().timeZone : '',
-      navigator.language || '',
-      navigator.platform || ''
-    ];
-    device_fp = fnv1a(fpParts.join('|'));
+    var fp = [];
+
+    // 1. Screen (physical properties)
+    fp.push(screen.width + 'x' + screen.height + ':' + screen.availWidth + 'x' + screen.availHeight);
+    fp.push(screen.colorDepth || 0);
+    fp.push(window.devicePixelRatio || 1);
+
+    // 2. Hardware
+    fp.push(navigator.hardwareConcurrency || 0);
+    fp.push(navigator.deviceMemory || 0);
+    fp.push(navigator.maxTouchPoints || 0);
+
+    // 3. Platform / locale
+    fp.push(navigator.platform || '');
+    fp.push(navigator.language || '');
+    fp.push((navigator.languages || []).join(','));
+
+    // 4. Timezone
+    try { fp.push(Intl.DateTimeFormat().resolvedOptions().timeZone); } catch(e) { fp.push(''); }
+    fp.push(new Date().getTimezoneOffset());
+
+    // 5. Math engine quirks (differ between JS engines)
+    fp.push(Math.tan(-1e300));
+
+    // 6. Canvas fingerprint (GPU + font rendering)
+    try {
+      var c = document.createElement('canvas');
+      c.width = 280; c.height = 60;
+      var x = c.getContext('2d');
+      if (x) {
+        x.textBaseline = 'alphabetic';
+        x.fillStyle = '#f60';
+        x.fillRect(125, 1, 62, 20);
+        x.fillStyle = '#069';
+        x.font = '14px Arial';
+        x.fillText('Cwm fjordbank glyphs vext quiz', 2, 15);
+        x.fillStyle = 'rgba(102,204,0,0.7)';
+        x.font = '18px Times New Roman';
+        x.fillText('Cwm fjordbank glyphs vext quiz', 4, 45);
+        x.globalCompositeOperation = 'multiply';
+        x.fillStyle = 'rgb(255,0,255)';
+        x.beginPath(); x.arc(50, 50, 50, 0, Math.PI * 2, true); x.closePath(); x.fill();
+        x.fillStyle = 'rgb(0,255,255)';
+        x.beginPath(); x.arc(100, 50, 50, 0, Math.PI * 2, true); x.closePath(); x.fill();
+        fp.push(fnv1a(c.toDataURL()));
+      } else fp.push('nc');
+    } catch(e) { fp.push('nc'); }
+
+    // 7. WebGL fingerprint (GPU model + capabilities)
+    try {
+      var gc = document.createElement('canvas');
+      var gl = gc.getContext('webgl') || gc.getContext('experimental-webgl');
+      if (gl) {
+        var di = gl.getExtension('WEBGL_debug_renderer_info');
+        fp.push(di ? gl.getParameter(di.UNMASKED_VENDOR_WEBGL) : '');
+        fp.push(di ? gl.getParameter(di.UNMASKED_RENDERER_WEBGL) : '');
+        fp.push(gl.getParameter(gl.MAX_TEXTURE_SIZE));
+        fp.push(gl.getParameter(gl.MAX_RENDERBUFFER_SIZE));
+        fp.push(gl.getParameter(gl.MAX_VERTEX_ATTRIBS));
+        fp.push(gl.getParameter(gl.MAX_VARYING_VECTORS));
+        var lw = gl.getParameter(gl.ALIASED_LINE_WIDTH_RANGE);
+        fp.push(lw ? lw[0]+','+lw[1] : '');
+        var ps = gl.getParameter(gl.ALIASED_POINT_SIZE_RANGE);
+        fp.push(ps ? ps[0]+','+ps[1] : '');
+        fp.push(fnv1a((gl.getSupportedExtensions() || []).join(',')));
+      } else fp.push('ng');
+    } catch(e) { fp.push('ng'); }
+
+    // 8. Audio (hardware sample rate + channels)
+    try {
+      var ac = new (window.AudioContext || window.webkitAudioContext)();
+      fp.push(ac.sampleRate);
+      fp.push(ac.destination.maxChannelCount);
+      ac.close();
+    } catch(e) { fp.push('na'); }
+
+    device_fp = fnv1a(fp.join('|||'));
   } catch(e) {}
 
   function account(url) {
