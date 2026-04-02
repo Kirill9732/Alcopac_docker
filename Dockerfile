@@ -24,26 +24,13 @@ RUN if [ ! -x /usr/bin/node ] && [ -x /usr/bin/nodejs ]; then ln -s /usr/bin/nod
 
 WORKDIR /opt/lampac
 
-# ── бинарники ──
-# TORRS=true → use binary with embedded TorrServer (default)
-# TORRS=false → use standard binary (separate TorrServer needed)
-ARG TORRS=true
-
+# ── бинарники (proxycore + TorrServer встроены) ──
 COPY app/lampac-go-amd64 /tmp/lampac-go-amd64
 COPY app/lampac-go-arm64 /tmp/lampac-go-arm64
-COPY app/lampac-go-amd64-torr[s] /tmp/lampac-go-amd64-torrs
-COPY app/lampac-go-arm64-torr[s] /tmp/lampac-go-arm64-torrs
 
 RUN set -eux; \
     ARCH="$(dpkg --print-architecture)"; \
-    SUFFIX=""; \
-    if [ "$TORRS" = "true" ]; then SUFFIX="-torrs"; fi; \
-    SRC="/tmp/lampac-go-${ARCH}${SUFFIX}"; \
-    if [ ! -f "$SRC" ]; then \
-      echo "Binary not found: $SRC (TORRS=$TORRS), falling back to standard"; \
-      SRC="/tmp/lampac-go-${ARCH}"; \
-    fi; \
-    cp "$SRC" /usr/local/bin/lampac-go; \
+    cp "/tmp/lampac-go-${ARCH}" /usr/local/bin/lampac-go; \
     chmod +x /usr/local/bin/lampac-go; \
     rm -f /tmp/lampac-go-*
 
