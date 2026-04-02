@@ -6,21 +6,37 @@
   var LS_KEY = 'lampac_unic_id';
   var ORIGIN = '{localhost}';
 
+  var _cachedUID = '';
   function getUID(){
+    if(_cachedUID) return _cachedUID;
+    // 1. Try Lampa.Storage
     try {
       var v = Lampa.Storage.get(LS_KEY, '');
-      if(v) return v;
+      if(v){ _cachedUID = v; ensureUIDStored(v); return v; }
     } catch(e){}
+    // 2. Try raw localStorage (Samsung/Tizen fallback)
     try {
       var raw = localStorage.getItem(LS_KEY);
       if(raw){
-        try { var parsed = JSON.parse(raw); if(typeof parsed==='string' && parsed) return parsed; }
-        catch(e){ if(typeof raw==='string' && raw) return raw; }
+        try { var parsed = JSON.parse(raw); if(typeof parsed==='string' && parsed){ _cachedUID = parsed; ensureUIDStored(parsed); return parsed; } }
+        catch(e){ if(typeof raw==='string' && raw){ _cachedUID = raw; ensureUIDStored(raw); return raw; } }
       }
     } catch(e){}
+    // 3. Try dedicated backup key (Samsung double-safety)
+    try {
+      var backup = localStorage.getItem('lampac_uid_backup');
+      if(backup){ _cachedUID = backup; ensureUIDStored(backup); return backup; }
+    } catch(e){}
+    // 4. Generate new
     var uid = Math.random().toString(36).substr(2,8);
-    try { Lampa.Storage.set(LS_KEY, uid); } catch(e){}
+    _cachedUID = uid;
+    ensureUIDStored(uid);
     return uid;
+  }
+  function ensureUIDStored(uid){
+    try { Lampa.Storage.set(LS_KEY, uid); } catch(e){}
+    try { localStorage.setItem(LS_KEY, JSON.stringify(uid)); } catch(e){}
+    try { localStorage.setItem('lampac_uid_backup', uid); } catch(e){}
   }
 
   function getCookie(name){
@@ -30,9 +46,41 @@
     } catch(e){ return ''; }
   }
 
+  // Comprehensive device fingerprint (FNV-1a of hardware + canvas + WebGL + audio).
+  function quickFP() {
+    try {
+      var fp = [];
+      fp.push(screen.width+'x'+screen.height+':'+screen.availWidth+'x'+screen.availHeight);
+      fp.push(screen.colorDepth||0); fp.push(window.devicePixelRatio||1);
+      fp.push(navigator.hardwareConcurrency||0); fp.push(navigator.deviceMemory||0);
+      fp.push(navigator.maxTouchPoints||0); fp.push(navigator.platform||'');
+      fp.push(navigator.language||''); fp.push(Math.tan(-1e300));
+      try { fp.push(Intl.DateTimeFormat().resolvedOptions().timeZone||''); } catch(e){ fp.push(''); }
+      try {
+        var c = document.createElement('canvas'); c.width=200; c.height=50;
+        var ctx = c.getContext('2d'); ctx.textBaseline='top'; ctx.font='14px Arial';
+        ctx.fillStyle='#f60'; ctx.fillRect(125,1,62,20);
+        ctx.fillStyle='#069'; ctx.fillText('Lampa,fp!',2,15);
+        ctx.fillStyle='rgba(102,204,0,0.7)'; ctx.fillText('Lampa,fp!',4,17);
+        fp.push(c.toDataURL().slice(-50));
+      } catch(e){ fp.push('nc'); }
+      try {
+        var gl = document.createElement('canvas').getContext('webgl');
+        if(gl){ var dbg=gl.getExtension('WEBGL_debug_renderer_info'); fp.push(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):'nr'); fp.push(gl.getParameter(gl.MAX_TEXTURE_SIZE)); }
+        else fp.push('ng');
+      } catch(e){ fp.push('ng'); }
+      try { var ac=new(window.AudioContext||window.webkitAudioContext)(); fp.push(ac.sampleRate); fp.push(ac.destination.maxChannelCount); ac.close(); } catch(e){ fp.push('na'); }
+      var h = 0x811c9dc5; var s = fp.join('|||');
+      for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      return (h >>> 0).toString(16);
+    } catch(e) { return ''; }
+  }
+
   function run(){
     var uid = getUID();
+    var fp = quickFP();
     var url = ORIGIN + '/tg/auth/status?uid=' + encodeURIComponent(uid);
+    if(fp) url += '&fp=' + encodeURIComponent(fp);
     var token = getCookie('lampac_token');
     if(token) url += '&token=' + encodeURIComponent(token);
 
@@ -50,7 +98,17 @@
       if(xhr.status === 200){
         try {
           var r = JSON.parse(xhr.responseText);
-          if(r && r.authorized){ ov.remove(); return; }
+          if(r && r.authorized){
+            // Bind device fingerprint for recovery.
+            if(r.token && fp){
+              try {
+                var bx = new XMLHttpRequest();
+                bx.open('GET', ORIGIN+'/tg/auth/bind-device?token='+encodeURIComponent(r.token)+'&uid='+encodeURIComponent(uid)+'&fp='+encodeURIComponent(fp), true);
+                bx.send();
+              } catch(e){}
+            }
+            ov.remove(); return;
+          }
           showAuth(r.code || '', r.bot || '');
         } catch(e){ ov.remove(); }
       } else { ov.remove(); }
@@ -102,8 +160,10 @@
                       '<div style="color:#ccc;">Сохраните пароль. Перезагрузите приложение.</div>' +
                     '</div>';
                 } else {
-                  try { Lampa.Storage.set(LS_KEY, val); } catch(e){}
+                  // Don't overwrite lampac_unic_id with password — keep existing device UID.
                   try { localStorage.removeItem('activity'); } catch(e){}
+                  try { delete window.start_deep_link; } catch(e){}
+                  try { Lampa.Storage.set('start_deep_link', ''); } catch(e){}
                   window.location.reload();
                 }
               } else {
@@ -131,6 +191,8 @@
               var r2 = JSON.parse(px2.responseText);
               if(r2 && r2.authorized){
                 try { localStorage.removeItem('activity'); } catch(e){}
+                try { delete window.start_deep_link; } catch(e){}
+                try { Lampa.Storage.set('start_deep_link', ''); } catch(e){}
                 window.location.reload();
               }
             } catch(e){}

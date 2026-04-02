@@ -2,13 +2,54 @@
 // Inlined into lampainit.js start() — runs after app:ready.
 
 (function authGateRun() {
+  // Comprehensive device fingerprint (FNV-1a of hardware + canvas + WebGL + audio).
+  function quickFP() {
+    try {
+      var fp = [];
+      fp.push(screen.width+'x'+screen.height+':'+screen.availWidth+'x'+screen.availHeight);
+      fp.push(screen.colorDepth||0); fp.push(window.devicePixelRatio||1);
+      fp.push(navigator.hardwareConcurrency||0); fp.push(navigator.deviceMemory||0);
+      fp.push(navigator.maxTouchPoints||0); fp.push(navigator.platform||'');
+      fp.push(navigator.language||''); fp.push(Math.tan(-1e300));
+      try { fp.push(Intl.DateTimeFormat().resolvedOptions().timeZone||''); } catch(e){ fp.push(''); }
+      try {
+        var c = document.createElement('canvas'); c.width=200; c.height=50;
+        var ctx = c.getContext('2d'); ctx.textBaseline='top'; ctx.font='14px Arial';
+        ctx.fillStyle='#f60'; ctx.fillRect(125,1,62,20);
+        ctx.fillStyle='#069'; ctx.fillText('Lampa,fp!',2,15);
+        ctx.fillStyle='rgba(102,204,0,0.7)'; ctx.fillText('Lampa,fp!',4,17);
+        fp.push(c.toDataURL().slice(-50));
+      } catch(e){ fp.push('nc'); }
+      try {
+        var gl = document.createElement('canvas').getContext('webgl');
+        if(gl){ var dbg=gl.getExtension('WEBGL_debug_renderer_info'); fp.push(dbg?gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL):'nr'); fp.push(gl.getParameter(gl.MAX_TEXTURE_SIZE)); }
+        else fp.push('ng');
+      } catch(e){ fp.push('ng'); }
+      try { var ac=new(window.AudioContext||window.webkitAudioContext)(); fp.push(ac.sampleRate); fp.push(ac.destination.maxChannelCount); ac.close(); } catch(e){ fp.push('na'); }
+      var h = 0x811c9dc5; var s = fp.join('|||');
+      for (var i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+      return (h >>> 0).toString(16);
+    } catch(e) { return ''; }
+  }
+  var fp = quickFP();
+
   var uid = Lampa.Storage.get('lampac_unic_id', '');
   if (!uid) {
-    uid = Lampa.Utils.uid(8).toLowerCase();
-    Lampa.Storage.set('lampac_unic_id', uid);
+    // Try localStorage backup (Samsung/Tizen resilience)
+    try {
+      var backup = localStorage.getItem('lampac_uid_backup');
+      if (backup) uid = backup;
+    } catch(e){}
   }
+  if (!uid) {
+    uid = Lampa.Utils.uid(8).toLowerCase();
+  }
+  // Store in all locations for stability
+  Lampa.Storage.set('lampac_unic_id', uid);
+  try { localStorage.setItem('lampac_uid_backup', uid); } catch(e){}
 
   var url = '{localhost}/tg/auth/status?uid=' + encodeURIComponent(uid);
+  if (fp) url += '&fp=' + encodeURIComponent(fp);
 
   var token = '';
   try {
@@ -34,6 +75,14 @@
   var net = new Lampa.Reguest();
   net.silent(url, function(result) {
     if (result && result.authorized) {
+      // Bind device fingerprint for recovery after cache clear.
+      if (result.token && fp) {
+        try {
+          var bx = new XMLHttpRequest();
+          bx.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(result.token) + '&uid=' + encodeURIComponent(uid) + '&fp=' + encodeURIComponent(fp), true);
+          bx.send();
+        } catch(e){}
+      }
       // Authorized — remove overlay, restore app
       overlay.remove();
       window.sync_disable = false;
@@ -89,8 +138,10 @@
                     '<div style="font-size:1.2em; color:cadetblue; font-weight:bold;">Перезагрузите страницу/приложение</div>' +
                   '</div>';
               } else {
-                Lampa.Storage.set('lampac_unic_id', val);
+                // Don't overwrite lampac_unic_id with password — keep existing device UID.
                 localStorage.removeItem('activity');
+                try { delete window.start_deep_link; } catch(e){}
+                try { Lampa.Storage.set('start_deep_link', ''); } catch(e){}
                 window.location.href = '/';
               }
             } else {
@@ -132,6 +183,8 @@
             if (r && r.authorized) {
               stopPolling();
               localStorage.removeItem('activity');
+              try { delete window.start_deep_link; } catch(e){}
+              try { Lampa.Storage.set('start_deep_link', ''); } catch(e){}
               window.location.href = '/';
             }
           }

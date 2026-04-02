@@ -6,7 +6,7 @@
 
   var STORAGE_KEY = 'lampac_theme';
   var STYLE_ID = 'lampac-theme-style';
-  var ALL_CLASSES = ['neon--theme', 'aurora--theme', 'gold--theme', 'mono--theme', 'sunset--theme', 'glass--theme', 'appletv--theme', 'custom--theme'];
+  var ALL_CLASSES = ['neon--theme', 'aurora--theme', 'gold--theme', 'mono--theme', 'sunset--theme', 'glass--theme', 'appletv--theme', 'netflix--theme', 'custom--theme'];
 
   // ═══════════════════════════════════════════════════════════
   //  Theme CSS Generator
@@ -94,6 +94,20 @@
       '}',
 
       // ─── Full detail page ────────────────────────────────
+      // Fix: buttons hidden on landscape tablets/TV — ensure buttons never clipped.
+      B + ' .full-start__body { height: auto !important; min-height: 20em; overflow: visible !important; }',
+      B + ' .full-start { overflow: visible !important; }',
+      B + ' .full-start__buttons { position: relative; z-index: 5; }',
+      // Fix: cinematic layout (full-start-new) buttons pushed off-screen by long content.
+      B + ' .full-start-new__body { overflow: visible !important; }',
+      B + ' .full-start-new__buttons { flex-shrink: 0 !important; min-height: 2.5em; }',
+      B + ' .full-start-new__buttons .full-start__button { flex-shrink: 0 !important; }',
+      // Limit description height in cinematic mode so buttons always fit.
+      B + ' .full-start-new .full-descr-text { max-height: 5em; overflow: hidden; }',
+      // Ensure reactions don\'t push buttons off screen.
+      B + ' .full-start-new .info__reactions { flex-wrap: nowrap; overflow: hidden; max-width: 100%; }',
+      // Cinema description: limit to 3 lines so buttons stay visible on TV
+      B + ' .cinema-descr { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }',
       B + ' .full-start__background.loaded { opacity: 0.55; }',
       B + ' .full-start__background.dim { opacity: 0.18; }',
       B + ' .full-start__title { font-weight: 700; letter-spacing: -0.01em; }',
@@ -725,6 +739,408 @@
       '}',
 
     ].join('\n'),
+
+    // ═══════════════════════════════════════════════════════════
+    //  Netflix — Full Visual Overhaul
+    // ═══════════════════════════════════════════════════════════
+    netflix: buildCSS({
+      cls: 'netflix--theme',
+      bg: '#141414', bgBlack: '#0a0a0a', text: '#e5e5e5', muted: '#808080',
+      accent: '#e50914', accent2: '#b81d24',
+      grad: '#e50914',
+      gradH: 'linear-gradient(90deg, #e50914, #b81d24)',
+      gradText: '#fff',
+      cardBg: '#181818',
+      sidebarBg: 'rgba(20,20,20,0.95)',
+      panelBg: 'rgba(20,20,20,0.97)',
+      modalBg: 'rgba(20,20,20,0.98)',
+      bgA0: 'rgba(20,20,20,0)', bgA70: 'rgba(20,20,20,0.7)',
+      bgA92: 'rgba(20,20,20,0.92)', bgA95: 'rgba(20,20,20,0.95)',
+      accentA04: 'rgba(229,9,20,0.04)', accentA06: 'rgba(229,9,20,0.06)',
+      accentA08: 'rgba(229,9,20,0.08)', accentA10: 'rgba(229,9,20,0.1)',
+      accentA12: 'rgba(229,9,20,0.12)', accentA15: 'rgba(229,9,20,0.15)',
+      accentA25: 'rgba(229,9,20,0.25)', accentA30: 'rgba(229,9,20,0.3)',
+      accentA35: 'rgba(229,9,20,0.35)', accentA40: 'rgba(229,9,20,0.4)',
+      accentA50: 'rgba(229,9,20,0.5)', accentA70: 'rgba(229,9,20,0.7)',
+    }) + '\n' + [
+
+      // ═══════════════════════════════════════════════════════════
+      //  CARD SYSTEM — Netflix-style complete overhaul
+      // ═══════════════════════════════════════════════════════════
+
+      // ─── Card base: clean, no decoration at rest ─────────────
+      'body.netflix--theme .card {' +
+      '  transition: z-index 0s 0.3s;' +  // delay z-index drop so card stays on top during scale-down
+      '}',
+      'body.netflix--theme .card.focus,' +
+      'body.netflix--theme .card.hover {' +
+      '  z-index: 10; transition: z-index 0s;' +
+      '}',
+
+      // Card image: tight radius, no background glow
+      'body.netflix--theme .card__img {' +
+      '  border-radius: 0.3em; background-color: #181818;' +
+      '}',
+      'body.netflix--theme .card__filter { border-radius: 0.3em; }',
+
+      // Card view: Netflix spring animation
+      'body.netflix--theme .card__view {' +
+      '  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.35s ease;' +
+      '  margin-bottom: 0.4em; border-radius: 0.3em; overflow: visible;' +
+      '}',
+
+      // ─── Focus state: BIG scale + shadow lift ────────────────
+      // Netflix scales ~1.3x on hover with a strong shadow
+      'body.netflix--theme .card.focus .card__view {' +
+      '  transform: scale(1.25) translateY(-0.8em); z-index: 10;' +
+      '  box-shadow: 0 16px 48px rgba(0,0,0,0.9), 0 4px 12px rgba(0,0,0,0.7);' +
+      '}',
+      // Focus border: thin white, tight to image (not outside glow)
+      'body.netflix--theme .card.focus .card__view::after,' +
+      'body.netflix--theme .card.hover .card__view::after {' +
+      '  top: 0 !important; left: 0 !important; right: 0 !important; bottom: 0 !important;' +
+      '  border: 2px solid rgba(255,255,255,0.7) !important;' +
+      '  border-radius: 0.3em !important; box-shadow: none !important;' +
+      '}',
+      // Hover: lighter
+      'body.netflix--theme .card.hover .card__view {' +
+      '  transform: scale(1.08);' +
+      '  box-shadow: 0 8px 24px rgba(0,0,0,0.6);' +
+      '}',
+      'body.netflix--theme .card.hover .card__view::after {' +
+      '  border-color: rgba(255,255,255,0.3) !important;' +
+      '}',
+
+      // ─── Card title: hidden by default, appears on focus ─────
+      'body.netflix--theme .card__title {' +
+      '  font-weight: 600; font-size: 1em; color: #e5e5e5;' +
+      '  line-height: 1.3; max-height: 2.6em; margin-top: 0.3em;' +
+      '  opacity: 0.5; transition: opacity 0.3s ease;' +
+      '}',
+      'body.netflix--theme .card.focus .card__title {' +
+      '  opacity: 1; color: #fff;' +
+      '}',
+      'body.netflix--theme .card__age {' +
+      '  font-size: 0.8em; color: #808080; margin-top: 0.2em;' +
+      '  opacity: 0.5; transition: opacity 0.3s ease;' +
+      '}',
+      'body.netflix--theme .card.focus .card__age { opacity: 1; }',
+
+      // ─── Rating badge: Netflix green "Match" style ───────────
+      'body.netflix--theme .card__vote {' +
+      '  color: #46d369 !important; font-weight: 700; font-size: 1.1em !important;' +
+      '  background: rgba(0,0,0,0.75) !important; border-radius: 0.2em;' +
+      '  padding: 0.15em 0.4em !important; right: 0.5em !important; bottom: 0.5em !important;' +
+      '}',
+
+      // ─── Quality badge: compact Netflix-style ────────────────
+      'body.netflix--theme .card__quality {' +
+      '  background: transparent !important; color: #fff !important;' +
+      '  font-weight: 800; font-size: 0.7em !important; letter-spacing: 0.08em;' +
+      '  border: 1px solid rgba(255,255,255,0.5) !important; border-radius: 0.2em;' +
+      '  padding: 0.2em 0.35em !important; left: 0.5em !important; bottom: 0.5em !important;' +
+      '}',
+
+      // ─── Type badge ──────────────────────────────────────────
+      'body.netflix--theme .card__type {' +
+      '  background: #e50914 !important; color: #fff !important;' +
+      '  border-radius: 0.2em; left: 0.5em !important; top: 0.5em !important;' +
+      '  font-size: 0.7em !important; font-weight: 700; padding: 0.2em 0.4em !important;' +
+      '}',
+
+      // ─── Card promo ──────────────────────────────────────────
+      'body.netflix--theme .card__promo {' +
+      '  background: linear-gradient(to bottom, transparent 0%, rgba(0,0,0,0.95) 100%) !important;' +
+      '  border-radius: 0 0 0.3em 0.3em;' +
+      '}',
+
+      // ─── Card markers: Netflix red/green dots ────────────────
+      'body.netflix--theme .card__marker {' +
+      '  background: rgba(0,0,0,0.8) !important; border-radius: 0.2em; padding: 0.15em 0.5em !important;' +
+      '}',
+      'body.netflix--theme .card__marker--look::before { background-color: #e50914 !important; }',
+      'body.netflix--theme .card__marker--viewed::before { background-color: #46d369 !important; }',
+      'body.netflix--theme .card__marker--continued::before { background-color: #e50914 !important; }',
+
+      // ─── Card icons ──────────────────────────────────────────
+      'body.netflix--theme .card__icons-inner {' +
+      '  background: rgba(0,0,0,0.7) !important; border-radius: 0.2em;' +
+      '}',
+
+      // ─── New episode badge ───────────────────────────────────
+      'body.netflix--theme .card__new-episode > div {' +
+      '  background-color: #e50914 !important; color: #fff !important;' +
+      '  border-radius: 0.2em; font-weight: 700;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  CATEGORY ROWS — tighter, Netflix-dense
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .items-line { padding-bottom: 0.8em; }',
+      'body.netflix--theme .items-line__head {' +
+      '  margin-bottom: 0.4em; padding: 0 1.5em;' +
+      '}',
+      'body.netflix--theme .items-line__title {' +
+      '  font-weight: 700 !important; font-size: 1.4em !important;' +
+      '  letter-spacing: -0.01em !important; text-transform: none !important;' +
+      '  color: #e5e5e5 !important;' +
+      '  background: none !important; -webkit-text-fill-color: unset !important;' +
+      '}',
+      // "More" button
+      'body.netflix--theme .items-line__more {' +
+      '  background: transparent !important; color: #e5e5e5;' +
+      '  font-size: 0.85em; font-weight: 600;' +
+      '  border: 1px solid rgba(255,255,255,0.3); border-radius: 0.3em;' +
+      '  transition: all 0.2s ease;' +
+      '}',
+      'body.netflix--theme .items-line__more.focus {' +
+      '  background: #fff !important; color: #000 !important;' +
+      '  border-color: #fff !important;' +
+      '}',
+      // Tighter min-height for rows
+      'body.netflix--theme .items-line--type-cards { min-height: 20em; }',
+
+      // ─── Scroll: Netflix edge fade ───────────────────────────
+      'body.netflix--theme .scroll--mask .scroll__content {' +
+      '  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%) !important;' +
+      '  mask-image: linear-gradient(to right, transparent 0%, black 2%, black 98%, transparent 100%) !important;' +
+      '}',
+
+      // ─── Top row numbers: bold Netflix style ─────────────────
+      'body.netflix--theme .items-line--type-top .items-cards .card::before {' +
+      '  color: #1a1a1a !important;' +
+      '  -webkit-text-stroke: 3px rgba(255,255,255,0.3) !important;' +
+      '  font-weight: 900 !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  HEADER — transparent to solid on scroll (Netflix style)
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .head__body {' +
+      '  background: linear-gradient(180deg, rgba(20,20,20,0.9) 0%, rgba(20,20,20,0) 100%) !important;' +
+      '  padding-bottom: 3em;' +
+      '}',
+      'body.netflix--theme .head__title {' +
+      '  font-weight: 700; color: #fff;' +
+      '}',
+      'body.netflix--theme .head__action.focus,' +
+      'body.netflix--theme .head__action.hover {' +
+      '  background: rgba(255,255,255,0.15) !important; color: #fff !important;' +
+      '  box-shadow: none !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  SIDEBAR — solid dark, no transparency tricks
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme.menu--open .wrap__left {' +
+      '  background: #141414 !important; border-right: none !important;' +
+      '  box-shadow: 4px 0 40px rgba(0,0,0,0.8) !important;' +
+      '}',
+      'body.netflix--theme .menu__item {' +
+      '  border-radius: 0.3em; transition: all 0.15s ease;' +
+      '}',
+      'body.netflix--theme .menu__item.focus,' +
+      'body.netflix--theme .menu__item.traverse,' +
+      'body.netflix--theme .menu__item.hover {' +
+      '  background: rgba(255,255,255,0.08) !important; color: #fff !important;' +
+      '  box-shadow: none !important;' +
+      '}',
+      'body.netflix--theme .menu__text {' +
+      '  font-weight: 500; letter-spacing: 0.02em;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  SETTINGS / MODALS — solid dark panels
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .settings__content,' +
+      'body.netflix--theme .settings-input__content {' +
+      '  background: #181818 !important; border-left: none !important;' +
+      '  box-shadow: -4px 0 40px rgba(0,0,0,0.7);' +
+      '}',
+      'body.netflix--theme .settings__title { font-weight: 700; color: #fff; }',
+      'body.netflix--theme .selectbox__content,' +
+      'body.netflix--theme .modal__content {' +
+      '  background: #1c1c1c !important; border: 1px solid rgba(255,255,255,0.06) !important;' +
+      '  border-radius: 0.5em; box-shadow: 0 16px 60px rgba(0,0,0,0.8);' +
+      '}',
+      'body.netflix--theme .settings-folder { border-radius: 0.3em; }',
+      'body.netflix--theme .settings-folder.focus {' +
+      '  background: rgba(255,255,255,0.06) !important;' +
+      '}',
+      'body.netflix--theme .settings-param { border-radius: 0.3em; }',
+      'body.netflix--theme .settings-param.focus {' +
+      '  background: rgba(255,255,255,0.05) !important;' +
+      '}',
+      'body.netflix--theme .selectbox-item { border-radius: 0.3em; }',
+      'body.netflix--theme .selectbox-item.focus,' +
+      'body.netflix--theme .selectbox-item.hover {' +
+      '  background: rgba(255,255,255,0.08) !important; color: #fff !important;' +
+      '}',
+      'body.netflix--theme .settings-input__links {' +
+      '  background-color: rgba(255,255,255,0.06) !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  FULL DETAIL PAGE — cinematic Netflix style
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .full-start__background.loaded { opacity: 0.65 !important; filter: brightness(0.9) !important; }',
+      'body.netflix--theme .full-start__background.dim { opacity: 0.12 !important; }',
+
+      // Title: massive, tight leading
+      'body.netflix--theme .full-start__title {' +
+      '  font-weight: 900 !important; letter-spacing: -0.03em;' +
+      '  text-shadow: 0 2px 20px rgba(0,0,0,0.7);' +
+      '}',
+      'body.netflix--theme .full-start__title-original { color: rgba(255,255,255,0.4) !important; }',
+      'body.netflix--theme .full-start__img { border-radius: 0.3em; }',
+
+      // Tags
+      'body.netflix--theme .full-start__tag {' +
+      '  background: rgba(255,255,255,0.06) !important;' +
+      '  border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 0.3em;' +
+      '}',
+      'body.netflix--theme .full-start__tag.tag--quality {' +
+      '  background: transparent !important; border: 1px solid rgba(255,255,255,0.5) !important;' +
+      '  color: #fff !important; font-weight: 800;' +
+      '}',
+
+      // Buttons: Netflix Play (white) / More Info (gray)
+      'body.netflix--theme .full-start__button {' +
+      '  border-radius: 0.25em !important;' +
+      '  border: none !important;' +
+      '  background: rgba(109,109,110,0.7) !important; color: #fff !important;' +
+      '  font-weight: 700 !important;' +
+      '  transition: all 0.2s ease;' +
+      '}',
+      'body.netflix--theme .full-start__button.focus {' +
+      '  background: #fff !important; color: #141414 !important;' +
+      '  box-shadow: 0 0 0 0 transparent !important;' +
+      '  transform: scale(1.03);' +
+      '}',
+
+      // Persons
+      'body.netflix--theme .full-person.focus,' +
+      'body.netflix--theme .full-descr__tag.focus,' +
+      'body.netflix--theme .simple-button.focus {' +
+      '  background: rgba(255,255,255,0.12) !important; color: #fff !important;' +
+      '}',
+
+      // Rating
+      'body.netflix--theme .full-start__rating { border-bottom-color: rgba(255,255,255,0.06) !important; }',
+      'body.netflix--theme .full-start__poster.focus img {' +
+      '  box-shadow: 0 0 0 2px rgba(255,255,255,0.6), 0 0 20px rgba(0,0,0,0.5) !important;' +
+      '}',
+
+      // Description
+      'body.netflix--theme .full-descr__text { color: rgba(255,255,255,0.8) !important; line-height: 1.6 !important; }',
+
+      // ═══════════════════════════════════════════════════════════
+      //  PLAYER
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .player-panel .button.focus { background: #e50914 !important; color: #fff !important; }',
+      'body.netflix--theme .time-line > div,' +
+      'body.netflix--theme .player-panel__position,' +
+      'body.netflix--theme .player-panel__position > div:after { background: #e50914 !important; }',
+
+      // ═══════════════════════════════════════════════════════════
+      //  TORRENTS
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .torrent-item.focus::after { border-color: rgba(255,255,255,0.4) !important; }',
+      'body.netflix--theme .torrent-item__size,' +
+      'body.netflix--theme .torrent-item__exe,' +
+      'body.netflix--theme .torrent-item__viewed,' +
+      'body.netflix--theme .torrent-serial__size {' +
+      '  background: rgba(255,255,255,0.1) !important; color: #e5e5e5 !important;' +
+      '  font-weight: 600; border-radius: 0.2em;' +
+      '}',
+      'body.netflix--theme .torrent-serial { background-color: rgba(255,255,255,0.03) !important; }',
+      'body.netflix--theme .torrent-file.focus,' +
+      'body.netflix--theme .torrent-serial.focus { background-color: rgba(255,255,255,0.08) !important; }',
+
+      // ═══════════════════════════════════════════════════════════
+      //  EXTENSIONS
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .extensions { background: #141414 !important; }',
+      'body.netflix--theme .extensions__item,' +
+      'body.netflix--theme .extensions__block-add {' +
+      '  background-color: #181818 !important; border-radius: 0.3em;' +
+      '  border: 1px solid rgba(255,255,255,0.04);' +
+      '}',
+      'body.netflix--theme .extensions__item.focus::after,' +
+      'body.netflix--theme .extensions__block-add.focus::after {' +
+      '  border-color: rgba(255,255,255,0.4) !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  NAVIGATION BAR
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .navigation-bar__body {' +
+      '  background: #141414 !important; border-top: none !important;' +
+      '  box-shadow: 0 -4px 20px rgba(0,0,0,0.6) !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  IPTV
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .iptv-list__item.focus,' +
+      'body.netflix--theme .iptv-menu__list-item.focus {' +
+      '  background: rgba(255,255,255,0.08) !important; color: #fff !important;' +
+      '}',
+      'body.netflix--theme .iptv-channel {' +
+      '  background-color: #181818 !important; border-radius: 0.3em;' +
+      '}',
+      'body.netflix--theme .online-prestige.focus::after,' +
+      'body.netflix--theme .iptv-channel.focus::before,' +
+      'body.netflix--theme .iptv-channel.last--focus::before {' +
+      '  border-color: rgba(255,255,255,0.4) !important;' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  ONLINE PRESTIGE — progress & viewed
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .online-prestige__timeline .time-line {' +
+      '  background: rgba(255,255,255,0.12) !important; border-radius: 0.15em;' +
+      '}',
+      'body.netflix--theme .online-prestige__timeline .time-line > div {' +
+      '  background: #e50914 !important; border-radius: 0.15em;' +
+      '}',
+      'body.netflix--theme .online-prestige__viewed {' +
+      '  background: rgba(229,9,20,0.2) !important;' +
+      '  border: 1px solid rgba(229,9,20,0.4);' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  SEARCH
+      // ═══════════════════════════════════════════════════════════
+
+      'body.netflix--theme .search-source.active {' +
+      '  background: rgba(255,255,255,0.1) !important; color: #fff !important;' +
+      '  border: 1px solid rgba(255,255,255,0.2);' +
+      '}',
+
+      // ═══════════════════════════════════════════════════════════
+      //  BROADCAST
+      // ═══════════════════════════════════════════════════════════
+      'body.netflix--theme .broadcast__scan::after { border-top-color: #e50914 !important; }',
+
+      // ═══════════════════════════════════════════════════════════
+      //  CATEGORY FULL (grid view)
+      // ═══════════════════════════════════════════════════════════
+      'body.netflix--theme .category-full .card { transition: transform 0.3s cubic-bezier(0.16,1,0.3,1); }',
+      'body.netflix--theme .category-full .card.focus { z-index: 10; }',
+
+    ].join('\n'),
   };
 
   // ═══════════════════════════════════════════════════════════
@@ -863,6 +1279,28 @@
   }
 
   // ─── Settings Registration ──────────────────────────────
+  // Global fix: ensure full-start buttons never hidden by overflow/height constraints.
+  // Applied regardless of theme — fixes cinematic layout on TV/tablets/mobile.
+  (function() {
+    var fixId = 'lampac-fullstart-fix';
+    if (!document.getElementById(fixId)) {
+      var s = document.createElement('style');
+      s.id = fixId;
+      s.textContent = [
+        '.full-start__body { height: auto !important; min-height: 15em; overflow: visible !important; }',
+        '.full-start { overflow: visible !important; }',
+        '.full-start-new__body { overflow: visible !important; }',
+        '.full-start-new__buttons, .full-start__buttons { flex-shrink: 0 !important; position: relative; z-index: 5; }',
+        // TV/large screens: constrain right column so buttons never leave viewport
+        '@media (min-width: 601px) {',
+        '  .full-start-new__right { max-height: calc(100vh - 3em) !important; overflow: hidden !important; }',
+        '  .cinema-descr { display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; overflow: hidden !important; flex-shrink: 1 !important; }',
+        '}',
+      ].join('\n');
+      document.head.appendChild(s);
+    }
+  })();
+
   function startPlugin() {
     window.lampac_theme_plugin = true;
     window.lampa_settings = window.lampa_settings || {};
@@ -1313,6 +1751,49 @@
           lampac_card_title_size: 'normal',
           lampac_card_year: 'show'
         },
+        netflix: {
+          lampac_theme: 'netflix',
+          lampac_theme_profile: 'manual',
+          lampac_theme_autotime: 'off',
+          lampac_theme_day: 'netflix',
+          lampac_theme_night: 'netflix',
+          lampac_screen_layout: 'cinematic',
+          lampac_screen_mobile_layout: 'poster',
+          lampac_screen_compact_mode: 'normal',
+          lampac_screen_compact_meta: 'off',
+          lampac_screen_button_size: 'normal',
+          lampac_screen_button_size_desktop: 'normal',
+          lampac_screen_button_size_mobile: 'large',
+          lampac_screen_button_order: 'online,torrent,trailer,book',
+          lampac_screen_hide_extra_buttons: 'off',
+          lampac_screen_smart_order: 'on',
+          lampac_screen_mobile_buttons_view: 'row',
+          lampac_screen_title_logo: 'show',
+          lampac_screen_logo_size: 'medium',
+          lampac_screen_logo_us: 'show',
+          lampac_screen_tv_mode: 'off',
+          lampac_screen_bg_dim: 'low',
+          lampac_screen_watch_progress: 'on',
+          lampac_screen_rating_style: 'compact',
+          lampac_screen_ratings: 'show',
+          lampac_screen_reactions: 'show',
+          lampac_screen_tagline: 'show',
+          lampac_screen_descr: 'show',
+          lampac_screen_overlay_opacity: '90',
+          lampac_screen_auto_contrast: 'off',
+          lampac_screen_buttons_folder: 'off',
+          lampac_screen_cinema_descr_size: 'medium',
+          lampac_card_style: 'default',
+          lampac_card_density: 'balance',
+          lampac_card_focus_scale: 'soft',
+          lampac_card_radius: 'small',
+          lampac_card_quality: 'show',
+          lampac_card_vote: 'show',
+          lampac_card_vote_style: 'compact',
+          lampac_card_title: 'show',
+          lampac_card_title_size: 'normal',
+          lampac_card_year: 'hide'
+        },
         msx: {
           lampac_theme: 'classic',
           lampac_theme_profile: 'manual',
@@ -1386,12 +1867,13 @@
           classic: 'Классика',
           androidtv: 'AndroidTV',
           appletv: 'AppleTV',
+          netflix: 'Netflix',
           msx: 'MSX',
           custom: 'Моя сцена'
         },
         default: 'classic'
       },
-      field: { name: 'Выбор сцены', description: 'Классика, AndroidTV, AppleTV, MSX или Моя сцена. По умолчанию — Классика' },
+      field: { name: 'Выбор сцены', description: 'Классика, AndroidTV, AppleTV, Netflix, MSX или Моя сцена' },
       onChange: function (v) { applyInterfaceSceneDeferred(v); }
     });
 
@@ -1497,6 +1979,7 @@
           classic: 'Классика',
           androidtv: 'AndroidTV',
           appletv: 'AppleTV',
+          netflix: 'Netflix',
           msx: 'MSX',
           custom: 'Моя сцена'
         },
@@ -1599,6 +2082,7 @@
           sunset: 'Закат',
           glass: 'Жидкое стекло',
           appletv: 'Apple TV',
+          netflix: 'Netflix',
           custom: 'Своя тема',
         },
         default: 'classic',
@@ -1691,7 +2175,7 @@
         type: 'select',
         values: {
           classic: 'Классическая', neon: 'Неон', aurora: 'Аврора', gold: 'Золото',
-          mono: 'Монохром', sunset: 'Закат', glass: 'Жидкое стекло', appletv: 'Apple TV', custom: 'Своя тема'
+          mono: 'Монохром', sunset: 'Закат', glass: 'Жидкое стекло', appletv: 'Apple TV', netflix: 'Netflix', custom: 'Своя тема'
         },
         default: 'classic',
       },
@@ -1706,7 +2190,7 @@
         type: 'select',
         values: {
           classic: 'Классическая', neon: 'Неон', aurora: 'Аврора', gold: 'Золото',
-          mono: 'Монохром', sunset: 'Закат', glass: 'Жидкое стекло', appletv: 'Apple TV', custom: 'Своя тема'
+          mono: 'Монохром', sunset: 'Закат', glass: 'Жидкое стекло', appletv: 'Apple TV', netflix: 'Netflix', custom: 'Своя тема'
         },
         default: 'appletv',
       },
@@ -1995,6 +2479,11 @@
       var initial_scene = Lampa.Storage.get('lampac_interface_scene_default', 'classic') || 'classic';
       Lampa.Storage.set('lampac_interface_scene', initial_scene);
       applyInterfaceScene(initial_scene);
+    }
+
+    // Migration: fix Netflix scene that had hide_extra_buttons='on' (caused missing buttons).
+    if (Lampa.Storage.get('lampac_screen_hide_extra_buttons', 'off') === 'on') {
+      Lampa.Storage.set('lampac_screen_hide_extra_buttons', 'off');
     }
 
     // ─── Card display settings component ─────────────────
@@ -2294,7 +2783,22 @@
           '  position: relative; z-index: 1; width: 100%;' +
           '  padding: 0 2.5em 2em 2.5em !important;' +
           '  flex-direction: column !important; align-items: flex-start !important; }');
-        rules.push('.full-start-new__right { width: 100% !important; max-width: 50%; }');
+        rules.push('.full-start-new__right {' +
+          '  width: 100% !important; max-width: 50%;' +
+          '  max-height: calc(100vh - 4em) !important; overflow: hidden !important;' +
+          '  display: flex !important; flex-direction: column !important;' +
+          '}');
+        // Ensure buttons are always visible — place them before description via order
+        rules.push('.full-start-new__buttons { order: 5 !important; flex-shrink: 0 !important; }');
+        rules.push('.full-start-new__logo { order: 1 !important; }');
+        rules.push('.full-start-new__title { order: 1 !important; }');
+        rules.push('.full-start-new__head { order: 2 !important; }');
+        rules.push('.full-start-new__tagline { order: 2 !important; }');
+        rules.push('.full-start-new__details { order: 3 !important; }');
+        rules.push('.full-start-new__rate-line { order: 4 !important; }');
+        rules.push('.full-start-new__reactions { order: 6 !important; }');
+        rules.push('.cinema-descr { order: 7 !important; flex-shrink: 1 !important; overflow: hidden !important;' +
+          '  display: -webkit-box !important; -webkit-line-clamp: 3 !important; -webkit-box-orient: vertical !important; }');
         rules.push('.full-start-new__title {' +
           '  font-size: 3.6em !important; font-weight: 800 !important;' +
           '  text-shadow: 0 4px 40px rgba(0,0,0,0.8); line-height: 1.0 !important; }');
@@ -2735,6 +3239,29 @@
           '}');
       }
       rules.push('.full-start-new__buttons { margin-top: 0.45em !important; }');
+
+      // ─── Mobile landscape: navigation bar compact ─────
+      rules.push('@media (orientation: landscape) and (max-height: 500px) {' +
+        '  .navigation-bar { position: fixed !important; bottom: 0 !important; left: 0 !important; right: 0 !important; top: auto !important; z-index: 999 !important; }' +
+        '  .navigation-bar__body {' +
+        '    flex-direction: row !important; height: auto !important; width: 100% !important;' +
+        '    padding: 0.3em 0 !important; gap: 0.2em !important;' +
+        '  }' +
+        '  .navigation-bar__item { flex: 1 !important; }' +
+        '  .navigation-bar__item-icon { width: 1.3em !important; height: 1.3em !important; }' +
+        '  .navigation-bar__item-text { font-size: 0.6em !important; }' +
+        '  .wrap { padding-right: 0 !important; }' +
+        '  .wrap__content { width: 100% !important; }' +
+        '  body { padding-bottom: 3.5em !important; }' +
+        '}');
+
+      // ─── Mobile landscape: film detail page compact ───
+      rules.push('@media (orientation: landscape) and (max-height: 500px) {' +
+        '  .full-start-new { min-height: 100vh !important; }' +
+        '  .full-start-new__title { font-size: 2.2em !important; }' +
+        '  .full-start-new__right { max-width: 55% !important; }' +
+        '  .cinema-descr { -webkit-line-clamp: 2 !important; }' +
+        '}');
 
       if (rules.length) {
         var style = document.createElement('style');
@@ -3505,7 +4032,8 @@
           var clone = document.createElement('div');
           clone.className = 'cinema-descr';
           clone.setAttribute('data-card', cardId);
-          if (txt.length > 300) txt = txt.substring(0, 300).replace(/\s+\S*$/, '') + '...';
+          var maxLen = (getDeviceType() === 'tv') ? 180 : 300;
+          if (txt.length > maxLen) txt = txt.substring(0, maxLen).replace(/\s+\S*$/, '') + '...';
           clone.textContent = txt;
           buttons.parentNode.insertBefore(clone, buttons);
         }

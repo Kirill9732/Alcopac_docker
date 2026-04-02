@@ -101,6 +101,7 @@
       };
       this.main = function (params, oncomplite, error) {
         var _this = this;
+        var catParam = params.category || '';
         var load = function load() {
           var status = new Lampa.Status(menu.length);
           status.onComplite = function (data) {
@@ -111,7 +112,10 @@
             if (items.length) oncomplite(items);else error();
           };
           menu.forEach(function (m) {
-            network.silent(_this.account(m.playlist_url), function (json) {
+            var url = m.playlist_url;
+            if (catParam) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'cat=' + encodeURIComponent(catParam);
+            var emptyResult = { title: Utils.sourceTitle(m.title), results: [], url: m.playlist_url };
+            network.silent(_this.account(url), function (json) {
               if (json.list) {
                 json.title = Utils.sourceTitle(m.title);
                 json.results = json.list;
@@ -120,14 +124,25 @@
                 delete json.list;
                 status.append(m.playlist_url, json);
               } else {
-                status.error();
+                if (catParam) status.append(m.playlist_url, emptyResult);
+                else status.error();
               }
-            }, status.error.bind(status));
+            }, function () {
+              if (catParam) status.append(m.playlist_url, emptyResult);
+              else status.error();
+            });
           });
         };
         if (menu) load();else {
           this.menu(load, error);
         }
+      };
+      this.categories = function (oncomplite) {
+        if (Api._cachedCategories) return oncomplite(Api._cachedCategories);
+        network.silent(host + '/sisi/categories', function (data) {
+          Api._cachedCategories = data;
+          oncomplite(data);
+        }, function () { oncomplite([]); });
       };
       this.search = function (params, oncomplite) {
         var _this2 = this;
@@ -170,9 +185,33 @@
       var items = [];
       var html = document.createElement('div');
       var active = 0;
+      var selectedCategory = object.category || '';
       this.create = function () {
         this.activity.loader(true);
         Api$1.main(object, this.build.bind(this), this.empty.bind(this));
+      };
+      this.filter = function () {
+        var _self = this;
+        Api$1.categories(function (cats) {
+          if (!cats || !cats.length) return;
+          var filterItems = [{ title: 'Все', key: '' }].concat(cats.map(function (c) {
+            return { title: c.title, key: c.key, selected: c.key === selectedCategory };
+          }));
+          Lampa.Select.show({
+            title: 'Категория',
+            items: filterItems,
+            onBack: function () { Lampa.Controller.toggle('content'); },
+            onSelect: function (a) {
+              Lampa.Activity.push({
+                url: '',
+                title: a.title === 'Все' ? '' : a.title,
+                component: 'start',
+                page: 1,
+                category: a.key
+              });
+            }
+          });
+        });
       };
       this.empty = function () {
         var empty = new Lampa.Empty();
@@ -249,7 +288,8 @@
             if (Navigator.canmove('left')) Navigator.move('left');else Lampa.Controller.toggle('menu');
           },
           right: function right() {
-            Navigator.move('right');
+            if (Navigator.canmove('right')) Navigator.move('right');
+            else _this2.filter();
           },
           up: function up() {
             if (Navigator.canmove('up')) Navigator.move('up');else Lampa.Controller.toggle('head');
@@ -556,31 +596,49 @@
         });
       });
     }
+    function showCategoryFilter() {
+      Api$1.categories(function (cats) {
+        if (!cats || !cats.length) return;
+        var filterItems = [{ title: 'Все', key: '' }].concat(cats.map(function (c) {
+          return { title: c.title, key: c.key };
+        }));
+        Lampa.Select.show({
+          title: 'Категория',
+          items: filterItems,
+          onBack: function () { Lampa.Controller.toggle('content'); },
+          onSelect: function (a) {
+            Lampa.Activity.push({
+              url: '',
+              title: a.title === 'Все' ? '' : a.title,
+              component: 'start',
+              page: 1,
+              category: a.key
+            });
+          }
+        });
+      });
+    }
     function addFilter() {
       var activi;
-      var timer;
       var button = $("<div class=\"head__action head__settings selector\">\n        <svg height=\"36\" viewBox=\"0 0 38 36\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n            <rect x=\"1.5\" y=\"1.5\" width=\"35\" height=\"33\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"3\"></rect>\n            <rect x=\"7\" y=\"8\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n            <rect x=\"7\" y=\"16\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n            <rect x=\"7\" y=\"25\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n            <circle cx=\"13.5\" cy=\"17.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n            <circle cx=\"23.5\" cy=\"26.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n            <circle cx=\"21.5\" cy=\"9.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n        </svg>\n    </div>");
-      button.hide().on('hover:enter', function () {
-        if (activi) {
-          activi.activity.component().filter();
+      // In sisi mode the filter is always visible — show immediately.
+      function onFilterClick() {
+        var cur = Lampa.Activity.active();
+        if (cur) {
+          var comp = cur.activity ? cur.activity.component : null;
+          var target = comp && typeof comp === 'function' ? comp() : comp;
+          if (target && typeof target.filter === 'function') {
+            target.filter();
+          } else {
+            showCategoryFilter();
+          }
         }
-      });
+      }
+      button.on('hover:enter', onFilterClick);
+      button.on('click', onFilterClick);
       $('.head .open--search').after(button);
       Lampa.Listener.follow('activity', function (e) {
         if (e.type == 'start') activi = e.object;
-        clearTimeout(timer);
-        timer = setTimeout(function () {
-          if (activi) {
-            if (activi.component !== 'view') {
-              button.hide();
-              activi = false;
-            }
-          }
-        }, 1000);
-        if (e.type == 'start' && e.component == 'view') {
-          button.show();
-          activi = e.object;
-        }
       });
     }
     function addId() {

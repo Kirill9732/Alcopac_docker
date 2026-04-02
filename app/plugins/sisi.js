@@ -521,7 +521,8 @@
     };
 
     this.main = function (params, oncomplite, error) {
-      this.playlist('', oncomplite, error);
+      var catQuery = params.category ? 'cat=' + encodeURIComponent(params.category) : '';
+      this.playlist(catQuery, oncomplite, error);
     };
 
     this.search = function (params, oncomplite, error) {
@@ -701,9 +702,19 @@
                 delete json.list;
                 status.append(m.playlist_url, json);
               } else {
+                if (add_url_query && add_url_query.indexOf('cat=') >= 0) {
+                  status.append(m.playlist_url, { title: Utils.sourceTitle(m.title), results: [], url: m.playlist_url });
+                } else {
+                  status.error();
+                }
+              }
+            }, function () {
+              if (add_url_query && add_url_query.indexOf('cat=') >= 0) {
+                status.append(m.playlist_url, { title: Utils.sourceTitle(m.title), results: [], url: m.playlist_url });
+              } else {
                 status.error();
               }
-            }, status.error.bind(status));
+            });
           }
 
           loadThis();
@@ -717,7 +728,8 @@
     };
 
     this.main = function (params, oncomplite, error) {
-      this.playlist('', oncomplite, error);
+      var catQuery = params.category ? 'cat=' + encodeURIComponent(params.category) : '';
+      this.playlist(catQuery, oncomplite, error);
     };
 
     this.search = function (params, oncomplite, error) {
@@ -750,12 +762,237 @@
 
   var Api = ApiHttp$1; //Defined.use_api == 'pwa' ? ApiPWA$1 : ApiHttp$1;
 
+  // ── Parental PIN Control ──
+  var pinUnlocked = false;
+  var pinHost = (Defined.localhost || '').replace(/\/sisi\/?$/, '');
+
+  function checkPinAndProceed(callback) {
+    if (pinUnlocked) return callback();
+
+    $.getJSON(Api.account(pinHost + '/sisi/pin/status'), function (data) {
+      if (!data.has_pin) {
+        pinUnlocked = true;
+        return callback();
+      }
+      if (data.method === 'tg_confirm') {
+        showTGConfirmModal(callback);
+      } else {
+        showPinModal(callback);
+      }
+    }).fail(function () {
+      pinUnlocked = true;
+      callback();
+    });
+  }
+
+  function showPinModal(callback) {
+    var pinValue = '';
+    var html = '<div style="padding:2em;text-align:center;">';
+    html += '<div style="font-size:1.5em;font-weight:700;margin-bottom:0.8em;">🔐 Родительский контроль</div>';
+    html += '<div style="margin-bottom:1em;color:rgba(255,255,255,0.6);">Введите 6-значный PIN-код</div>';
+    html += '<div id="sisi-pin-display" style="font-size:2.5em;letter-spacing:0.5em;margin-bottom:1em;min-height:1.5em;">______</div>';
+    html += '<div id="sisi-pin-error" style="color:#e50914;min-height:1.5em;margin-bottom:0.5em;"></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.4em;max-width:15em;margin:0 auto;">';
+    for (var i = 1; i <= 9; i++) {
+      html += '<div class="sisi-pin-btn selector" data-digit="' + i + '" style="width:3.5em;height:3.5em;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:700;background:rgba(255,255,255,0.1);border-radius:0.5em;cursor:pointer;">' + i + '</div>';
+    }
+    html += '<div class="sisi-pin-btn selector" data-action="forgot" style="width:3.5em;height:3.5em;display:flex;align-items:center;justify-content:center;font-size:0.9em;background:rgba(255,255,255,0.05);border-radius:0.5em;cursor:pointer;">?</div>';
+    html += '<div class="sisi-pin-btn selector" data-digit="0" style="width:3.5em;height:3.5em;display:flex;align-items:center;justify-content:center;font-size:1.5em;font-weight:700;background:rgba(255,255,255,0.1);border-radius:0.5em;cursor:pointer;">0</div>';
+    html += '<div class="sisi-pin-btn selector" data-action="clear" style="width:3.5em;height:3.5em;display:flex;align-items:center;justify-content:center;font-size:1.2em;background:rgba(255,255,255,0.05);border-radius:0.5em;cursor:pointer;">⌫</div>';
+    html += '</div></div>';
+
+    Lampa.Modal.open({
+      title: '',
+      html: $(html),
+      onBack: function () {
+        Lampa.Modal.close();
+        Lampa.Activity.backward();
+      },
+      onSelect: function () {}
+    });
+
+    function updateDisplay() {
+      var display = '';
+      for (var i = 0; i < 6; i++) {
+        display += i < pinValue.length ? '●' : '_';
+      }
+      $('#sisi-pin-display').text(display);
+    }
+
+    function submitPin() {
+      $.ajax({
+        url: Api.account(pinHost + '/sisi/pin/check'),
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({ pin: pinValue }),
+        success: function (data) {
+          if (data.success) {
+            pinUnlocked = true;
+            Lampa.Modal.close();
+            callback();
+          } else if (data.error === 'too_many_attempts') {
+            $('#sisi-pin-error').text('Слишком много попыток. Подождите ' + data.retry_after + ' сек.');
+            pinValue = '';
+            updateDisplay();
+          } else {
+            $('#sisi-pin-error').text('Неверный PIN-код');
+            pinValue = '';
+            updateDisplay();
+          }
+        },
+        error: function () {
+          $('#sisi-pin-error').text('Ошибка проверки');
+          pinValue = '';
+          updateDisplay();
+        }
+      });
+    }
+
+    $('.sisi-pin-btn').on('hover:enter', function () {
+      var digit = $(this).data('digit');
+      var action = $(this).data('action');
+
+      if (action === 'clear') {
+        pinValue = pinValue.slice(0, -1);
+        updateDisplay();
+        $('#sisi-pin-error').text('');
+      } else if (action === 'forgot') {
+        Lampa.Modal.close();
+        showPinResetModal(callback);
+      } else if (digit !== undefined && pinValue.length < 6) {
+        pinValue += String(digit);
+        updateDisplay();
+        if (pinValue.length === 6) {
+          setTimeout(submitPin, 200);
+        }
+      }
+    });
+
+    updateDisplay();
+  }
+
+  function showPinResetModal(callback) {
+    var resetCode = '';
+    var codeSent = false;
+
+    function sendCode() {
+      $.ajax({
+        url: Api.account(pinHost + '/sisi/pin/reset'),
+        type: 'POST',
+        contentType: 'application/json',
+        data: '{}',
+        success: function (data) {
+          if (data.sent) {
+            codeSent = true;
+            Lampa.Noty.show('Код отправлен в Telegram');
+            showCodeInput();
+          } else {
+            Lampa.Noty.show(data.error || 'Ошибка отправки', { time: 5000 });
+            showPinModal(callback);
+          }
+        }
+      });
+    }
+
+    function showCodeInput() {
+      Lampa.Input.edit({ title: 'Код из Telegram', value: '', free: true }, function (code) {
+        if (!code) { showPinModal(callback); return; }
+        $.ajax({
+          url: Api.account(pinHost + '/sisi/pin/reset'),
+          type: 'POST',
+          contentType: 'application/json',
+          data: JSON.stringify({ code: code }),
+          success: function (data) {
+            if (data.success) {
+              pinUnlocked = true;
+              Lampa.Noty.show('PIN-код сброшен');
+              callback();
+            } else {
+              Lampa.Noty.show(data.error || 'Неверный код', { time: 5000 });
+              showCodeInput();
+            }
+          }
+        });
+      });
+    }
+
+    sendCode();
+  }
+
+  function showTGConfirmModal(callback) {
+    // Send TG confirm request, then poll for response.
+    $.ajax({
+      url: Api.account(pinHost + '/sisi/pin/tg-confirm'),
+      type: 'POST', contentType: 'application/json', data: '{}',
+      success: function (data) {
+        if (data.error) {
+          Lampa.Noty.show(data.error, { time: 5000 });
+          return;
+        }
+        var reqId = data.request_id;
+        // Show waiting modal.
+        var html = '<div style="padding:2em;text-align:center;">';
+        html += '<div style="font-size:1.5em;font-weight:700;margin-bottom:0.8em;">🔐 Подтверждение в Telegram</div>';
+        html += '<div style="margin-bottom:1em;color:rgba(255,255,255,0.7);">Подтвердите вход в Telegram боте</div>';
+        html += '<div id="tg-confirm-status" style="font-size:1.2em;margin-bottom:1em;">⏳ Ожидание...</div>';
+        html += '</div>';
+
+        Lampa.Modal.open({
+          title: '',
+          html: $(html),
+          onBack: function () {
+            Lampa.Modal.close();
+            Lampa.Activity.backward();
+          }
+        });
+
+        // Poll every 2 seconds.
+        var pollCount = 0;
+        var pollInterval = setInterval(function () {
+          pollCount++;
+          if (pollCount > 60) { // 2 min timeout
+            clearInterval(pollInterval);
+            Lampa.Modal.close();
+            Lampa.Noty.show('Время подтверждения истекло', { time: 5000 });
+            return;
+          }
+          $.getJSON(Api.account(pinHost + '/sisi/pin/tg-confirm?id=' + reqId), function (r) {
+            if (r.status === 'allowed') {
+              clearInterval(pollInterval);
+              pinUnlocked = true;
+              Lampa.Modal.close();
+              callback();
+            } else if (r.status === 'denied') {
+              clearInterval(pollInterval);
+              Lampa.Modal.close();
+              Lampa.Noty.show('❌ Доступ запрещён', { time: 5000 });
+              Lampa.Activity.backward();
+            } else if (r.status === 'expired') {
+              clearInterval(pollInterval);
+              Lampa.Modal.close();
+              Lampa.Noty.show('Запрос истёк', { time: 5000 });
+              Lampa.Activity.backward();
+            }
+            // "pending" — keep polling
+          });
+        }, 2000);
+      },
+      error: function () {
+        Lampa.Noty.show('Ошибка отправки запроса', { time: 5000 });
+      }
+    });
+  }
+
   function Sisi(object) {
     var comp = new Lampa.InteractionMain(object);
 
+    var origCreate = comp.create;
     comp.create = function () {
+      var _this = this;
       this.activity.loader(true);
-      Api.main(object, this.build.bind(this), this.empty.bind(this));
+      checkPinAndProceed(function () {
+        Api.main(object, _this.build.bind(_this), _this.empty.bind(_this));
+      });
       return this.render();
     };
 
@@ -1000,30 +1237,68 @@
     //addSourceSearch();
     Lampa.Search.addSource(Search);
 
+    function showCategoryFilter() {
+      var host = Defined.localhost || window.location.origin;
+      var catUrl = host.replace(/\/sisi\/?$/, '') + '/sisi/categories';
+      $.getJSON(catUrl, function (cats) {
+        if (!cats || !cats.length) return;
+        var items = [{ title: 'Все', key: '' }].concat(cats.map(function (c) {
+          return { title: c.title, key: c.key };
+        }));
+        Lampa.Select.show({
+          title: 'Категория',
+          items: items,
+          onBack: function () { Lampa.Controller.toggle('content'); },
+          onSelect: function (a) {
+            Lampa.Activity.push({
+              url: '',
+              title: a.title === 'Все' ? '' : a.title,
+              component: 'sisi_' + Defined.use_api,
+              page: 1,
+              category: a.key
+            });
+          }
+        });
+      });
+    }
+
     function addFilter() {
       var activi;
       var timer;
       var button = $("<div class=\"head__action head__settings selector\">\n            <svg height=\"36\" viewBox=\"0 0 38 36\" fill=\"none\" xmlns=\"http://www.w3.org/2000/svg\">\n                <rect x=\"1.5\" y=\"1.5\" width=\"35\" height=\"33\" rx=\"1.5\" stroke=\"currentColor\" stroke-width=\"3\"></rect>\n                <rect x=\"7\" y=\"8\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n                <rect x=\"7\" y=\"16\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n                <rect x=\"7\" y=\"25\" width=\"24\" height=\"3\" rx=\"1.5\" fill=\"currentColor\"></rect>\n                <circle cx=\"13.5\" cy=\"17.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n                <circle cx=\"23.5\" cy=\"26.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n                <circle cx=\"21.5\" cy=\"9.5\" r=\"3.5\" fill=\"currentColor\"></circle>\n            </svg>\n        </div>");
-      button.hide().on('hover:enter', function () {
-        if (activi) {
-          if (Lampa.Manifest.app_digital >= 300) activi.activity.component.filter();
-          else activi.activity.component().filter();
+      function onFilterPress() {
+        var cur = activi || Lampa.Activity.active();
+        if (cur && cur.component === sisiViewComp) {
+          // Individual source view — use its native filter
+          var comp;
+          try {
+            comp = Lampa.Manifest.app_digital >= 300 ? cur.activity.component : cur.activity.component();
+          } catch(e) { comp = null; }
+          if (comp && typeof comp.filter === 'function') {
+            comp.filter();
+            return;
+          }
         }
-      });
+        // ALL tab or fallback — global category filter
+        showCategoryFilter();
+      }
+      button.hide().on('hover:enter', onFilterPress).on('click', onFilterPress);
       $('.head .open--search').after(button);
+      var sisiViewComp = 'sisi_view_' + Defined.use_api;
+      var sisiMainComp = 'sisi_' + Defined.use_api;
       Lampa.Listener.follow('activity', function (e) {
         if (e.type == 'start') activi = e.object;
         clearTimeout(timer);
         timer = setTimeout(function () {
           if (activi) {
-            if (activi.component !== 'sisi_view_' + Defined.use_api) {
+            if (activi.component !== sisiViewComp && activi.component !== sisiMainComp) {
               button.hide();
               activi = false;
             }
           }
         }, 1000);
 
-        if (e.type == 'start' && e.component == 'sisi_view_' + Defined.use_api) {
+        if (e.type == 'start' && (e.component == sisiViewComp || e.component == sisiMainComp)) {
           button.show();
           activi = e.object;
         }
@@ -1065,6 +1340,120 @@
           description: 'Сохранять историю просмотров'
         },
         onRender: function onRender(item) { }
+      });
+
+      // PIN parental control settings
+      Lampa.SettingsApi.addParam({
+        component: 'sisi',
+        param: {
+          name: 'sisi_pin_manage',
+          type: 'trigger',
+          values: '',
+          "default": true
+        },
+        field: {
+          name: '🔐 Родительский контроль',
+          description: 'Установить PIN-код или подтверждение через Telegram'
+        },
+        onRender: function onRender(item) {
+          item.on('hover:enter', function () {
+            Lampa.Select.show({
+              title: '🔐 Родительский контроль',
+              items: [
+                { title: 'Установить PIN (6 цифр)', action: 'set' },
+                { title: 'Подтверждение через Telegram', action: 'tg_confirm' },
+                { title: 'Убрать защиту', action: 'remove' }
+              ],
+              onBack: function () { Lampa.Controller.toggle('settings'); },
+              onSelect: function (a) {
+                if (a.action === 'tg_confirm') {
+                  $.ajax({
+                    url: Api.account(pinHost + '/sisi/pin/set'),
+                    type: 'POST', contentType: 'application/json',
+                    data: JSON.stringify({ pin: '', method: 'tg_confirm' }),
+                    success: function (d) {
+                      if (d.success) Lampa.Noty.show('Подтверждение через Telegram включено');
+                      else Lampa.Noty.show(d.error || 'Ошибка');
+                    }
+                  });
+                } else if (a.action === 'set') {
+                  (function() {
+                    var newPin = '';
+                    var html = '<div style="padding:1.5em;text-align:center;">';
+                    html += '<div style="font-size:1.3em;font-weight:700;margin-bottom:0.6em;">Установить PIN-код</div>';
+                    html += '<div style="margin-bottom:0.8em;color:rgba(255,255,255,0.6);">Введите 6 цифр</div>';
+                    html += '<div id="set-pin-display" style="font-size:2.2em;letter-spacing:0.5em;margin-bottom:0.8em;">______</div>';
+                    html += '<div style="display:flex;flex-wrap:wrap;justify-content:center;gap:0.3em;max-width:14em;margin:0 auto;">';
+                    for (var i = 1; i <= 9; i++) {
+                      html += '<div class="set-pin-btn selector" data-digit="' + i + '" style="width:3.2em;height:3.2em;display:flex;align-items:center;justify-content:center;font-size:1.4em;font-weight:700;background:rgba(255,255,255,0.1);border-radius:0.5em;cursor:pointer;">' + i + '</div>';
+                    }
+                    html += '<div style="width:3.2em;height:3.2em;"></div>';
+                    html += '<div class="set-pin-btn selector" data-digit="0" style="width:3.2em;height:3.2em;display:flex;align-items:center;justify-content:center;font-size:1.4em;font-weight:700;background:rgba(255,255,255,0.1);border-radius:0.5em;cursor:pointer;">0</div>';
+                    html += '<div class="set-pin-btn selector" data-action="clear" style="width:3.2em;height:3.2em;display:flex;align-items:center;justify-content:center;font-size:1.1em;background:rgba(255,255,255,0.05);border-radius:0.5em;cursor:pointer;">⌫</div>';
+                    html += '</div></div>';
+                    Lampa.Modal.open({
+                      title: '',
+                      html: $(html),
+                      onBack: function () { Lampa.Modal.close(); Lampa.Controller.toggle('settings'); }
+                    });
+                    function updateDisp() {
+                      var d = '';
+                      for (var i = 0; i < 6; i++) d += i < newPin.length ? '●' : '_';
+                      $('#set-pin-display').text(d);
+                    }
+                    $('.set-pin-btn').on('hover:enter', function () {
+                      var digit = $(this).data('digit');
+                      var action = $(this).data('action');
+                      if (action === 'clear') { newPin = newPin.slice(0, -1); updateDisp(); }
+                      else if (digit !== undefined && newPin.length < 6) {
+                        newPin += String(digit);
+                        updateDisp();
+                        if (newPin.length === 6) {
+                          setTimeout(function () {
+                            $.ajax({
+                              url: Api.account(pinHost + '/sisi/pin/set'),
+                              type: 'POST', contentType: 'application/json',
+                              data: JSON.stringify({ pin: newPin }),
+                              success: function (d) {
+                                Lampa.Modal.close();
+                                if (d.success) Lampa.Noty.show('PIN установлен');
+                                else Lampa.Noty.show(d.error || 'Ошибка');
+                              }
+                            });
+                          }, 300);
+                        }
+                      }
+                    });
+                    updateDisp();
+                  })();
+                } else {
+                  // Require confirmation before removing protection.
+                  function doRemove() {
+                    $.ajax({
+                      url: Api.account(pinHost + '/sisi/pin/remove'),
+                      type: 'POST', contentType: 'application/json', data: '{}',
+                      success: function (d) {
+                        if (d.success) { pinUnlocked = true; Lampa.Noty.show('Защита убрана'); }
+                        else Lampa.Noty.show(d.error || 'Ошибка');
+                      }
+                    });
+                  }
+                  // Check current method and require auth.
+                  $.getJSON(Api.account(pinHost + '/sisi/pin/status'), function (st) {
+                    if (!st.has_pin) { doRemove(); return; }
+                    if (st.method === 'tg_confirm') {
+                      // TG confirm to remove.
+                      showTGConfirmModal(doRemove);
+                    } else {
+                      // PIN confirm to remove.
+                      showPinModal(doRemove);
+                    }
+                  });
+                }
+              }
+            });
+          });
+        }
       });
     }
 
