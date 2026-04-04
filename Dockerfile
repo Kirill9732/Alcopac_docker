@@ -14,6 +14,7 @@ RUN apt-get update \
         jq \
         proxychains4 \
         nodejs \
+        python3-pip \
     && (apt-get install -y --no-install-recommends chromium \
         || apt-get install -y --no-install-recommends chromium-browser \
         || true) \
@@ -21,6 +22,12 @@ RUN apt-get update \
 
 # yt-dlp runtime check expects `node` binary name.
 RUN if [ ! -x /usr/bin/node ] && [ -x /usr/bin/nodejs ]; then ln -s /usr/bin/nodejs /usr/bin/node; fi
+
+# ── pip-пакеты для YouTube (yt-dlp plugins) ──
+RUN pip install --no-cache-dir --break-system-packages \
+        yt-dlp-ejs \
+        bgutil-ytdlp-pot-provider \
+    || true
 
 WORKDIR /opt/lampac
 
