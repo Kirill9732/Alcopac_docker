@@ -77,13 +77,22 @@ function CommunityStoreComponent(object){
   var activeFilter = '';
   var network = new Lampa.Reguest();
 
+  // Источники (балансеры) уже встроены в lampac-go и управляются разделом
+  // «Online». Дублирующие community-плагины с категорией balancer только
+  // путают пользователя, поэтому скрываем их из магазина.
+  function filterCatalog(list){
+    return (list || []).filter(function(p){
+      return p && p.category !== 'balancer';
+    });
+  }
+
   this.create = function(){
     injectCSS();
     this.activity.loader(true);
     scroll.minus();
 
     network.silent(STORE_HOST + '/api/community-plugins', function(data){
-      catalog = data.catalog || data.plugins || [];
+      catalog = filterCatalog(data.catalog || data.plugins);
       renderPage();
       this.activity.loader(false);
       this.activity.toggle();
@@ -256,7 +265,7 @@ function CommunityStoreComponent(object){
 
   function refreshCatalog(){
     network.silent(STORE_HOST + '/api/community-plugins', function(data){
-      catalog = data.catalog || data.plugins || [];
+      catalog = filterCatalog(data.catalog || data.plugins);
       renderPage();
       setTimeout(function(){ focusFirst(); }, 50);
     }, function(){});
@@ -277,12 +286,14 @@ function CommunityStoreComponent(object){
         if(Lampa.Activity.canGoBack()) Lampa.Activity.backward();
         else Lampa.Controller.toggle('menu');
       },
-      right: function(){},
+      right: function(){
+        Navigator.move('right');
+      },
       up: function(){
-        Lampa.Controller.collectionUp();
+        Navigator.move('up');
       },
       down: function(){
-        Lampa.Controller.collectionDown();
+        Navigator.move('down');
       },
       back: function(){
         Lampa.Activity.backward();

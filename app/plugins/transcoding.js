@@ -275,7 +275,9 @@
     // ------------------------------------------------------------------
 
     function handlePlayerStart(e) {
-        if (!isMkvSource(e.data) || e.data.transcoding || /\/transcoding\//i.test(e.data.url)) return;
+        // 'transcoding' in e.data covers both successful (true) and fallback (false)
+        // re-plays so a disabled / failing /transcoding/start endpoint can't loop.
+        if (!isMkvSource(e.data) || ('transcoding' in e.data) || /\/transcoding\//i.test(e.data.url)) return;
 
         e.abort();
         e.data.url = e.data.url.replace(/&(preload|stat|m3u)/g, '&play');
