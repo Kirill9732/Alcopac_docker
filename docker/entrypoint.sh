@@ -59,6 +59,35 @@ if [ ! -f "$CONFIG_DIR/config.toml" ] && [ -f "$DEFAULTS_DIR/config.toml" ]; the
   cp "$DEFAULTS_DIR/config.toml" "$CONFIG_DIR/config.toml"
 fi
 
+# ── yt-dlp: докачать если в образе не оказалось (Dockerfile build мог упасть
+# на network в QEMU emulation для arm64). Делаем это в фоне чтобы не задерживать
+# старт сервиса — yt-dlp нужен только для youtube-балансера, а не для основного
+# трафика.
+YT_BIN="/opt/lampac/bin/yt-dlp"
+if [ ! -x "$YT_BIN" ] || ! "$YT_BIN" --version >/dev/null 2>&1; then
+  echo "[entrypoint] yt-dlp отсутствует, докачиваю в фоне..."
+  (
+    mkdir -p "$(dirname "$YT_BIN")"
+    ARCH="$(dpkg --print-architecture 2>/dev/null || uname -m)"
+    case "$ARCH" in
+      amd64|x86_64) YT_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" ;;
+      arm64|aarch64) YT_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" ;;
+      *) YT_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" ;;
+    esac
+    for i in 1 2 3 4 5; do
+      if curl -fsSL --connect-timeout 30 --retry 3 --retry-delay 5 -o "$YT_BIN" "$YT_URL"; then
+        chmod +x "$YT_BIN"
+        ln -sf "$YT_BIN" /usr/local/bin/yt-dlp
+        echo "[entrypoint] ✓ yt-dlp скачан"
+        exit 0
+      fi
+      echo "[entrypoint] yt-dlp download attempt $i failed; retry..."
+      sleep $((i * 5))
+    done
+    echo "[entrypoint] ⚠ yt-dlp скачать не удалось — youtube-балансер недоступен до перезапуска"
+  ) &
+fi
+
 # ── права на приватные файлы ──
 chmod 0600 "$APP_DIR/cache/aeskey" 2>/dev/null || true
 chmod 0600 "$APP_DIR/torrserver/accs.db" 2>/dev/null || true

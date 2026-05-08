@@ -74,6 +74,21 @@ function denyBindDevice(token) {
     var uid = Lampa.Storage.get('lampac_unic_id', '');
     var bx = new XMLHttpRequest();
     bx.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(token) + '&uid=' + encodeURIComponent(uid) + '&fp=' + encodeURIComponent(deny_fp), true);
+    bx.onload = function() {
+      // If the server reports uid_conflict (UID belongs to another token —
+      // typically after a cub-backup restore), regenerate UID once and retry.
+      try {
+        var rr = JSON.parse(bx.responseText);
+        if (rr && rr.uid_conflict) {
+          var nuid = Lampa.Utils.uid(8).toLowerCase();
+          Lampa.Storage.set('lampac_unic_id', nuid);
+          try { localStorage.setItem('lampac_uid_backup', nuid); } catch(e){}
+          var bx2 = new XMLHttpRequest();
+          bx2.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(token) + '&uid=' + encodeURIComponent(nuid) + '&fp=' + encodeURIComponent(deny_fp), true);
+          bx2.send();
+        }
+      } catch(e){}
+    };
     bx.send();
   } catch(e){}
 }

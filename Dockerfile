@@ -42,6 +42,11 @@ RUN set -eux; \
     rm -f /tmp/lampac-go-*
 
 # ── yt-dlp ──
+# Download is wrapped with retries + curl (better behaviour than wget under
+# QEMU emulation, where the arm64 build often hits "exit 4" on wget).
+# If GitHub release download genuinely fails (network outage), we don't fail
+# the whole image — yt-dlp is a runtime tool and entrypoint.sh re-attempts
+# the download on first start. This keeps multi-arch builds resilient.
 RUN set -eux; \
     mkdir -p /opt/lampac/bin; \
     YT_BIN="/opt/lampac/bin/yt-dlp"; \
@@ -52,11 +57,23 @@ RUN set -eux; \
         arm64) YT_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux_aarch64" ;; \
         *) YT_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_linux" ;; \
       esac; \
-      wget -qO "$YT_BIN" "$YT_URL"; \
-      chmod +x "$YT_BIN"; \
+      ok=0; \
+      for i in 1 2 3 4 5; do \
+        if curl -fsSL --connect-timeout 30 --retry 3 --retry-delay 5 -o "$YT_BIN" "$YT_URL"; then \
+          ok=1; break; \
+        fi; \
+        echo "yt-dlp download attempt $i failed, retrying..."; \
+        sleep $((i * 5)); \
+      done; \
+      if [ "$ok" = 1 ]; then \
+        chmod +x "$YT_BIN"; \
+      else \
+        echo "yt-dlp download FAILED — entrypoint.sh will retry on first start"; \
+        rm -f "$YT_BIN"; \
+      fi; \
     fi; \
     ln -sf "$YT_BIN" /usr/local/bin/yt-dlp; \
-    yt-dlp --version
+    "$YT_BIN" --version 2>/dev/null || echo "yt-dlp pending — first-start download will fix"
 
 # ── defaults: файлы, которые volume может перекрыть ──
 # При первом запуске entrypoint.sh скопирует их в пустые volumes

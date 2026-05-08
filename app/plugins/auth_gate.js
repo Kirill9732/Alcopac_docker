@@ -33,6 +33,15 @@
   }
   var fp = quickFP();
 
+  // Generate a fresh device UID — used when server signals uid_conflict
+  // (cub backup cloned the UID from another device) or on first install.
+  function regenUID() {
+    var n = Lampa.Utils.uid(8).toLowerCase();
+    Lampa.Storage.set('lampac_unic_id', n);
+    try { localStorage.setItem('lampac_uid_backup', n); } catch(e){}
+    return n;
+  }
+
   var uid = Lampa.Storage.get('lampac_unic_id', '');
   if (!uid) {
     // Try localStorage backup (Samsung/Tizen resilience)
@@ -42,11 +51,12 @@
     } catch(e){}
   }
   if (!uid) {
-    uid = Lampa.Utils.uid(8).toLowerCase();
+    uid = regenUID();
+  } else {
+    // Store in all locations for stability
+    Lampa.Storage.set('lampac_unic_id', uid);
+    try { localStorage.setItem('lampac_uid_backup', uid); } catch(e){}
   }
-  // Store in all locations for stability
-  Lampa.Storage.set('lampac_unic_id', uid);
-  try { localStorage.setItem('lampac_uid_backup', uid); } catch(e){}
 
   var url = '{localhost}/tg/auth/status?uid=' + encodeURIComponent(uid);
   if (fp) url += '&fp=' + encodeURIComponent(fp);
@@ -74,12 +84,47 @@
 
   var net = new Lampa.Reguest();
   net.silent(url, function(result) {
+    // Server detected this UID belongs to another device's token (cub backup
+    // restore cloned lampac_unic_id, or someone is reusing our UID).
+    // Regenerate locally so the device record stays unique per physical device.
+    if (result && result.uid_conflict) {
+      uid = regenUID();
+      if (result.authorized && result.token && fp) {
+        // Already authorized — just rebind the new UID to the existing token.
+        try {
+          var bxc = new XMLHttpRequest();
+          bxc.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(result.token) + '&uid=' + encodeURIComponent(uid) + '&fp=' + encodeURIComponent(fp), true);
+          bxc.send();
+        } catch(e){}
+        overlay.remove();
+        window.sync_disable = false;
+        delete window.start_deep_link;
+        return;
+      }
+      // Not authorized — reload so the auth flow restarts with the fresh UID.
+      try { setTimeout(function(){ window.location.reload(); }, 200); } catch(e){}
+      return;
+    }
+
     if (result && result.authorized) {
       // Bind device fingerprint for recovery after cache clear.
       if (result.token && fp) {
         try {
           var bx = new XMLHttpRequest();
           bx.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(result.token) + '&uid=' + encodeURIComponent(uid) + '&fp=' + encodeURIComponent(fp), true);
+          bx.onload = function() {
+            // Server may detect uid_conflict here too (UID already on another
+            // token). Regenerate and rebind once if so.
+            try {
+              var rr = JSON.parse(bx.responseText);
+              if (rr && rr.uid_conflict) {
+                uid = regenUID();
+                var bx2 = new XMLHttpRequest();
+                bx2.open('GET', '{localhost}/tg/auth/bind-device?token=' + encodeURIComponent(result.token) + '&uid=' + encodeURIComponent(uid) + '&fp=' + encodeURIComponent(fp), true);
+                bx2.send();
+              }
+            } catch(e){}
+          };
           bx.send();
         } catch(e){}
       }

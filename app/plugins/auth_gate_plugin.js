@@ -38,6 +38,15 @@
     try { localStorage.setItem(LS_KEY, JSON.stringify(uid)); } catch(e){}
     try { localStorage.setItem('lampac_uid_backup', uid); } catch(e){}
   }
+  // Force-regenerate the device UID. Used when the server signals
+  // uid_conflict — typically after a cub-backup restore cloned this UID
+  // from another device's account.
+  function regenUID(){
+    var n = Math.random().toString(36).substr(2,8);
+    _cachedUID = n;
+    ensureUIDStored(n);
+    return n;
+  }
 
   function getCookie(name){
     try {
@@ -98,12 +107,40 @@
       if(xhr.status === 200){
         try {
           var r = JSON.parse(xhr.responseText);
+          if(r && r.uid_conflict){
+            // UID was cloned (cub backup or otherwise) — generate fresh.
+            uid = regenUID();
+            if(r.authorized && r.token && fp){
+              try {
+                var bxc = new XMLHttpRequest();
+                bxc.open('GET', ORIGIN+'/tg/auth/bind-device?token='+encodeURIComponent(r.token)+'&uid='+encodeURIComponent(uid)+'&fp='+encodeURIComponent(fp), true);
+                bxc.send();
+              } catch(e){}
+              ov.remove(); return;
+            }
+            // Reload so the auth flow restarts with the fresh UID.
+            try { setTimeout(function(){ window.location.reload(); }, 200); } catch(e){}
+            return;
+          }
           if(r && r.authorized){
             // Bind device fingerprint for recovery.
             if(r.token && fp){
               try {
                 var bx = new XMLHttpRequest();
                 bx.open('GET', ORIGIN+'/tg/auth/bind-device?token='+encodeURIComponent(r.token)+'&uid='+encodeURIComponent(uid)+'&fp='+encodeURIComponent(fp), true);
+                bx.onload = function(){
+                  // bind-device may also report uid_conflict (UID belongs
+                  // to another token at bind time). Regenerate and retry once.
+                  try {
+                    var rr = JSON.parse(bx.responseText);
+                    if(rr && rr.uid_conflict){
+                      uid = regenUID();
+                      var bx2 = new XMLHttpRequest();
+                      bx2.open('GET', ORIGIN+'/tg/auth/bind-device?token='+encodeURIComponent(r.token)+'&uid='+encodeURIComponent(uid)+'&fp='+encodeURIComponent(fp), true);
+                      bx2.send();
+                    }
+                  } catch(e){}
+                };
                 bx.send();
               } catch(e){}
             }

@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>lampac WASM Studio</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+  :root {
+    --bg: #15171c;
+    --panel: #1c1f26;
+    --line: #262a32;
+    --fg: #e9eaee;
+    --muted: #8a91a0;
+    --accent: #4ea1ff;
+    --ok: #5dd682;
+    --err: #ff7b72;
+  }
+  html, body { background: var(--bg); color: var(--fg); margin: 0; padding: 0; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  header {
+    display: flex; align-items: center; gap: 16px;
+    padding: 10px 16px;
+    background: var(--panel); border-bottom: 1px solid var(--line);
+    height: 48px;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: 0.2px; }
+  header .pill { font-size: 11px; padding: 2px 8px; border-radius: 999px; background: #2a3140; color: var(--muted); }
+  .row { display: flex; flex: 1; min-height: 0; }
+  .col { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  .left { flex: 0 0 320px; background: var(--panel); border-right: 1px solid var(--line); padding: 14px; gap: 8px; overflow: auto; }
+  .center { flex: 2; }
+  .right { flex: 1.2; background: var(--panel); border-left: 1px solid var(--line); }
+  .controls { display: grid; grid-template-columns: 100px 1fr; gap: 10px 12px; align-items: center; }
+  label { color: var(--muted); font-size: 12px; }
+  input, select, textarea {
+    background: #11141a; color: var(--fg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 6px 8px; font-size: 13px; width: 100%; box-sizing: border-box;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  textarea { min-height: 240px; resize: vertical; }
+  .toolbar { display: flex; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
+  button {
+    background: var(--accent); color: white; border: none; border-radius: 6px;
+    padding: 6px 14px; font-weight: 500; cursor: pointer; font-size: 13px;
+  }
+  button.secondary { background: #2a3140; color: var(--fg); }
+  button:disabled { opacity: 0.5; cursor: progress; }
+  .editor { flex: 1; min-height: 0; }
+  .right .pane { padding: 14px; height: 100%; box-sizing: border-box; overflow: auto; font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+  .pane h3 { font-family: -apple-system, sans-serif; margin: 0 0 8px 0; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.7px; }
+  .pane pre { margin: 0; white-space: pre-wrap; }
+  .ok { color: var(--ok); }
+  .err { color: var(--err); }
+  .meta { color: var(--muted); font-size: 12px; margin-bottom: 10px; line-height: 1.6; }
+  .meta b { color: var(--fg); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>WASM Studio</h1>
+  <span class="pill">lampac-go</span>
+  <span style="flex:1"></span>
+  <span id="status" style="color: var(--muted); font-size: 12px;"></span>
+</header>
+
+<div class="row" style="height: calc(100vh - 48px);">
+
+  <!-- LEFT: manifest + controls -->
+  <div class="col left">
+    <div class="controls">
+      <label>ID</label>
+      <input id="modId" placeholder="my_plugin" value="my_plugin">
+      <label>Язык</label>
+      <select id="lang">
+        <option value="tinygo">TinyGo (Go)</option>
+        <option value="rust">Rust (cargo)</option>
+        <option value="as">AssemblyScript (asc)</option>
+      </select>
+      <label>Цель</label>
+      <select id="target">
+        <option value="server">server (балансер)</option>
+        <option value="client">client (Lampa-расширение)</option>
+        <option value="both">both</option>
+        <option value="middleware">middleware (фильтр)</option>
+      </select>
+    </div>
+    <hr>
+    <h3 style="margin: 0 0 6px 0; font-size: 12px; color: var(--muted);">manifest.json</h3>
+    <textarea id="manifest" spellcheck="false">{
+  "id": "my_plugin",
+  "name": "My Plugin",
+  "version": "0.1.0",
+  "target": "server",
+  "language": "tinygo",
+  "abi_version": 1,
+  "permissions": ["http:*"]
+}</textarea>
+    <hr>
+    <div class="meta">
+      Build вызывает <b>tinygo / cargo / asc</b> на сервере lampac-go.<br>
+      Install кладёт <b>plugin.wasm</b> в <b>wasm_modules/&lt;id&gt;/</b> — fsnotify подхватывает автоматически.<br>
+      Тест: <a href="/lite/" style="color: var(--accent);">/lite/&lt;id&gt;</a>
+    </div>
+  </div>
+
+  <!-- CENTER: source editor -->
+  <div class="col center">
+    <div class="toolbar">
+      <button id="btnTpl" class="secondary">Шаблон</button>
+      <button id="btnBuild">Build</button>
+      <button id="btnInstall" class="secondary">Install</button>
+      <button id="btnRun" class="secondary">Run</button>
+    </div>
+    <div id="editor" class="editor"></div>
+  </div>
+
+  <!-- RIGHT: build output / runtime response -->
+  <div class="col right">
+    <div class="pane" id="output">
+      <h3>Output</h3>
+      <pre id="out" class="muted">Build / Install / Run выводы появятся здесь.</pre>
+    </div>
+  </div>
+</div>
+
+<!-- Monaco from CDN — works in any modern browser, no install on lampac side. -->
+<script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs/loader.min.js"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const out = $("out");
+  const status = $("status");
+  let editor;
+
+  function setStatus(t, cls) {
+    status.textContent = t;
+    status.style.color = cls === 'ok' ? 'var(--ok)' : cls === 'err' ? 'var(--err)' : 'var(--muted)';
+  }
+
+  function show(o) {
+    if (typeof o === 'string') { out.textContent = o; return; }
+    out.innerHTML = '';
+    const head = document.createElement('div');
+    head.className = o.ok ? 'ok' : 'err';
+    head.textContent = o.ok ? '✓ build ok' : '✗ build failed';
+    out.appendChild(head);
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    meta.innerHTML = 'took: <b>' + (o.took || '?') + '</b> · size: <b>' + (o.wasm_size ? (o.wasm_size + ' bytes') : '—') + '</b> · sha256: <b>' + ((o.wasm_hash || '').slice(0, 12) || '—') + '</b>';
+    out.appendChild(meta);
+    if (o.stderr) {
+      const h = document.createElement('h3'); h.textContent = 'stderr'; out.appendChild(h);
+      const p = document.createElement('pre'); p.className = 'err'; p.textContent = o.stderr; out.appendChild(p);
+    }
+    if (o.stdout) {
+      const h = document.createElement('h3'); h.textContent = 'stdout'; out.appendChild(h);
+      const p = document.createElement('pre'); p.textContent = o.stdout; out.appendChild(p);
+    }
+  }
+
+  async function loadTemplate(lang) {
+    const r = await fetch('/admin/api/wasm-studio/template?lang=' + encodeURIComponent(lang));
+    const tpl = await r.json();
+    editor.setValue(tpl.source || '');
+    $("manifest").value = tpl.manifest || '';
+    if (tpl.language) $("lang").value = tpl.language;
+    setLanguage(tpl.language || lang);
+  }
+
+  function setLanguage(lang) {
+    const map = { tinygo: 'go', rust: 'rust', as: 'typescript' };
+    monaco.editor.setModelLanguage(editor.getModel(), map[lang] || 'plaintext');
+  }
+
+  async function build() {
+    const id = $("modId").value.trim();
+    if (!id) { setStatus('id required', 'err'); return; }
+    let manifest;
+    try { manifest = JSON.parse($("manifest").value); manifest.id = id; manifest.target = $("target").value; }
+    catch (e) { show('manifest is not valid JSON: ' + e.message); return; }
+    setStatus('building…', '');
+    $("btnBuild").disabled = true;
+    try {
+      const r = await fetch('/admin/api/wasm-studio/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, language: $("lang").value, manifest, source: editor.getValue() }),
+      });
+      const o = await r.json();
+      show(o);
+      setStatus(o.ok ? 'build ok' : 'build failed', o.ok ? 'ok' : 'err');
+    } catch (e) {
+      show('build error: ' + e.message);
+      setStatus('build failed', 'err');
+    } finally { $("btnBuild").disabled = false; }
+  }
+
+  async function install() {
+    const id = $("modId").value.trim();
+    if (!id) { setStatus('id required', 'err'); return; }
+    setStatus('installing…', '');
+    try {
+      const r = await fetch('/admin/api/wasm-studio/install', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const o = await r.json();
+      if (o.ok) { setStatus('installed → /lite/' + id, 'ok'); show('Installed. Hot-reload should have picked it up — try GET /lite/' + id); }
+      else { setStatus('install failed', 'err'); show('install error: ' + (o.error || JSON.stringify(o))); }
+    } catch (e) {
+      setStatus('install failed', 'err');
+      show('install error: ' + e.message);
+    }
+  }
+
+  async function run() {
+    const id = $("modId").value.trim();
+    if (!id) { setStatus('id required', 'err'); return; }
+    setStatus('running…', '');
+    try {
+      const r = await fetch('/lite/' + encodeURIComponent(id) + '?rjson=true&id=' + Math.random().toString(36).slice(2));
+      const text = await r.text();
+      out.innerHTML = '<h3>GET /lite/' + id + ' → ' + r.status + '</h3>';
+      const pre = document.createElement('pre'); pre.textContent = text; out.appendChild(pre);
+      setStatus('done', 'ok');
+    } catch (e) {
+      setStatus('run failed', 'err');
+      show('run error: ' + e.message);
+    }
+  }
+
+  $("btnTpl").addEventListener('click', () => loadTemplate($("lang").value));
+  $("btnBuild").addEventListener('click', build);
+  $("btnInstall").addEventListener('click', install);
+  $("btnRun").addEventListener('click', run);
+  $("lang").addEventListener('change', () => { if (editor) setLanguage($("lang").value); });
+  $("target").addEventListener('change', () => {
+    try { const m = JSON.parse($("manifest").value); m.target = $("target").value; $("manifest").value = JSON.stringify(m, null, 2); } catch (_) {}
+  });
+
+  require.config({ paths: { vs: 'https://cdn.jsdelivr.net/npm/monaco-editor@0.50.0/min/vs' } });
+  require(['vs/editor/editor.main'], function () {
+    editor = monaco.editor.create($("editor"), {
+      value: '// click "Шаблон" to populate this editor with a starter for the selected language.\n',
+      language: 'go',
+      theme: 'vs-dark',
+      fontSize: 13,
+      automaticLayout: true,
+      minimap: { enabled: false },
+    });
+    loadTemplate('tinygo').catch(() => {});
+  });
+})();
+</script>
+</body>
+</html>
