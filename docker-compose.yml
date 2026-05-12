@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
       args:
         TORRS: "${TORRS:-true}"
-    image: alcopac:0.4
+    image: alcopac:0.4a
     container_name: alcopac
     restart: unless-stopped
     env_file:

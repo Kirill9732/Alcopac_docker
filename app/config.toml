@@ -273,7 +273,9 @@ enabled = true
 enable = false
 enabled = false
 hls = true
-host = 'https://rezka-ua.tv/'
+host = 'https://hdrzk.org'
+login = ''
+password = ''
 premium = true
 
 [online.rutube_movie]
@@ -374,7 +376,14 @@ response_content_length = true
 cache = true
 cache_rsize = true
 cache_time = 60
-jacred_host = 'https://jacred.xyz'
+
+[parser]
+jacred_host = 'https://jacred.stream'
+jacred_apikey = 'pp'
+
+[parser]
+jacred_apikey = 'pp'
+jacred_host = 'https://jacred.stream'
 
 [sisi]
 component = 'sisi'
@@ -411,7 +420,7 @@ external_player_protocol = ''
 port = 9080
 
 [transcoding]
-enable = false
+enable = true
 ffmpeg = 'ffmpeg'
 max_concurrent_jobs = 5
 temp_root = 'cache/transcoding'
@@ -434,6 +443,19 @@ torrserver = true
 tracks = true
 transcoding = true
 youtube_feed = false
+theme = true
+screensaver = true
+remote = true
+external_player = true
+migrate = true
+
+[iptv]
+enable = true
+default_proxy = 'none'
+max_playlists = 10
+epg_update_hours = 6
+epg_urls = []
+global_playlists = []
 
 [websocket]
 type = 'nws'
